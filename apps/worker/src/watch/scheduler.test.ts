@@ -44,6 +44,7 @@ function ports(over: Partial<WatchPorts> = {}) {
     recordChecks: async (records) => {
       recorded.push(records);
     },
+    evaluateIncidents: async () => {},
     ensurePartition: async () => {},
     now: () => NOW,
     onError: (context, error) => errors.push({ context, error }),
@@ -238,6 +239,48 @@ describe("runTick", () => {
 
     await runTick(p, { batchSize: 25, concurrency: 4 });
     expect(lease).toHaveBeenCalledWith(25, NOW);
+  });
+
+  it("evaluates incidents for the monitors it probed", async () => {
+    const seen: string[][] = [];
+    const { ports: p } = ports({
+      leaseDueMonitors: async () => [monitor("a"), monitor("b")],
+      evaluateIncidents: async (ids) => {
+        seen.push([...ids]);
+      },
+    });
+
+    await runTick(p, options);
+    expect(seen).toEqual([["a", "b"]]);
+  });
+
+  it("does not evaluate when the checks failed to persist", async () => {
+    // Concluding from observations that were never written would open an
+    // incident with no supporting checks behind it.
+    const evaluateIncidents = vi.fn(async () => {});
+    const { ports: p } = ports({
+      leaseDueMonitors: async () => [monitor("a")],
+      recordChecks: async () => {
+        throw new Error("write failed");
+      },
+      evaluateIncidents,
+    });
+
+    await runTick(p, options);
+    expect(evaluateIncidents).not.toHaveBeenCalled();
+  });
+
+  it("survives an evaluation failure without throwing", async () => {
+    const { ports: p, errors } = ports({
+      leaseDueMonitors: async () => [monitor("a")],
+      evaluateIncidents: async () => {
+        throw new Error("evaluation exploded");
+      },
+    });
+
+    const summary = await runTick(p, options);
+    expect(summary.succeeded).toBe(1);
+    expect(errors[0]!.context).toBe("evaluateIncidents");
   });
 
   it("schedules the next check from each monitor's own interval", async () => {

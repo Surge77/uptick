@@ -31,6 +31,13 @@ export interface WatchPorts {
   leaseDueMonitors(limit: number, now: Date): Promise<LeasedMonitor[]>;
   runProbe(monitor: LeasedMonitor): Promise<ProbeResult>;
   recordChecks(records: readonly CheckRecord[]): Promise<void>;
+  /**
+   * Turn the checks just written into incidents.
+   *
+   * Runs after `recordChecks`, never interleaved with probing: the verdict
+   * machine must be able to see this tick's own results.
+   */
+  evaluateIncidents(monitorIds: readonly string[], now: Date): Promise<void>;
   /** Create the partition covering `at` if absent. Idempotent. */
   ensurePartition(at: Date): Promise<void>;
   now(): Date;
@@ -162,6 +169,19 @@ export async function runTick(
     await ports.recordChecks(records);
   } catch (error) {
     ports.onError("recordChecks", error);
+    // Skip evaluation: concluding from observations that were never persisted
+    // would open an incident with no supporting checks behind it.
+    summary.durationMs = ports.now().getTime() - startedAt.getTime();
+    return summary;
+  }
+
+  try {
+    await ports.evaluateIncidents(
+      monitors.map((m) => m.id),
+      ports.now(),
+    );
+  } catch (error) {
+    ports.onError("evaluateIncidents", error);
   }
 
   summary.durationMs = ports.now().getTime() - startedAt.getTime();
