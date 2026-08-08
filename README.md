@@ -119,7 +119,7 @@ TTFB — so a slowdown can be attributed rather than just observed.
 - [x] **Phase 1** — Schema + migrations
 - [x] **Phase 2** — Verdict state machine + SLA math
 - [x] **Phase 3** — Probe executors + SSRF guard
-- [ ] **Phase 4** — Worker scheduler with leasing
+- [x] **Phase 4** — Worker scheduler with leasing
 - [ ] **Phase 5** — Incidents + rollups
 - [ ] **Phase 6** — Alerting with dedup + escalation
 - [ ] **Phase 7** — Dashboard + auth
