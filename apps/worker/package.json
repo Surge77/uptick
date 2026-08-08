@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "dev": "dotenv -e ../../.env.local -- tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "diag:lease": "dotenv -e ../../.env.local -- tsx scripts/diag-lease.ts"
+    "diag:lease": "dotenv -e ../../.env.local -- tsx scripts/diag-lease.ts",
+    "diag:incidents": "dotenv -e ../../.env.local -- tsx scripts/diag-incidents.ts"
   },
   "dependencies": {
     "@uptick/core": "workspace:*",
