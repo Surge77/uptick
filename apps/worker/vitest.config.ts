@@ -27,6 +27,7 @@ export default defineConfig({
         "src/incidents/pipeline.ts",
         "src/jobs/ledger.ts",
         "src/jobs/heartbeat-store.ts",
+        "src/herald/dispatcher.ts",
       ],
       reporter: ["text"],
       thresholds: { lines: 85, functions: 85, branches: 80, statements: 85 },

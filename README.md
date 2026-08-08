@@ -121,7 +121,7 @@ TTFB — so a slowdown can be attributed rather than just observed.
 - [x] **Phase 3** — Probe executors + SSRF guard
 - [x] **Phase 4** — Worker scheduler with leasing
 - [x] **Phase 5** — Incidents + rollups
-- [ ] **Phase 6** — Alerting with dedup + escalation
+- [x] **Phase 6** — Alerting with dedup + escalation
 - [ ] **Phase 7** — Dashboard + auth
 - [ ] **Phase 8** — Public status page
 - [ ] **Phase 9** — Quorum · DAG suppression · deploy correlation · error budgets

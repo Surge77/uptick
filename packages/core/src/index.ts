@@ -12,3 +12,6 @@ export * from "./probes/ssrf.js";
 export * from "./probes/assertions.js";
 export * from "./probes/http.js";
 export * from "./probes/network.js";
+
+export * from "./herald/dedupe.js";
+export * from "./herald/message.js";

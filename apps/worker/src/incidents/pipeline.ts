@@ -1,3 +1,4 @@
+import type { NotificationKind } from "@uptick/core";
 import type { PrismaClient } from "@uptick/db";
 import { DEFAULT_FLAP_WINDOW_MS, evaluateMonitor, type Evaluation } from "./evaluator.js";
 import {
@@ -16,6 +17,9 @@ import {
  * to a handful of queries regardless of batch size.
  */
 
+/** Emitted after a transition is persisted, so alerting can follow it. */
+export type IncidentNotifier = (incidentId: string, kind: NotificationKind) => Promise<void>;
+
 export interface PipelineSummary {
   evaluated: number;
   opened: number;
@@ -29,6 +33,7 @@ export async function evaluateAndApply(
   monitorIds: readonly string[],
   now: Date,
   onError: (context: string, error: unknown) => void,
+  notify?: IncidentNotifier,
 ): Promise<PipelineSummary> {
   const summary: PipelineSummary = {
     evaluated: 0,
@@ -97,6 +102,18 @@ export async function evaluateAndApply(
       if (evaluation.action.kind === "OPEN") summary.opened += 1;
       if (evaluation.action.kind === "RESOLVE") summary.resolved += 1;
       if (evaluation.action.kind === "CHANGE_SEVERITY") summary.severityChanged += 1;
+
+      // Alerting follows persistence, never precedes it. Paging for an incident
+      // that failed to commit would report an outage with no record behind it.
+      if (notify) {
+        const incidentId = await resolveIncidentId(prisma, monitor.id, evaluation.action);
+        const kind = notificationKindFor(evaluation.action);
+        if (incidentId && kind) {
+          await notify(incidentId, kind).catch((error: unknown) =>
+            onError(`notify ${incidentId}`, error),
+          );
+        }
+      }
     } catch (error) {
       // One monitor failing to persist must not abandon the rest of the batch.
       onError(`applyEvaluation ${monitor.id}`, error);
@@ -104,4 +121,34 @@ export async function evaluateAndApply(
   }
 
   return summary;
+}
+
+/** The incident an action refers to, resolving OPEN to the row just created. */
+async function resolveIncidentId(
+  prisma: PrismaClient,
+  monitorId: string,
+  action: Evaluation["action"],
+): Promise<string | null> {
+  if (action.kind === "RESOLVE" || action.kind === "CHANGE_SEVERITY") return action.incidentId;
+  if (action.kind !== "OPEN") return null;
+
+  const latest = await prisma.incident.findFirst({
+    where: { monitorId },
+    orderBy: { startedAt: "desc" },
+    select: { id: true },
+  });
+  return latest?.id ?? null;
+}
+
+function notificationKindFor(action: Evaluation["action"]): NotificationKind | null {
+  switch (action.kind) {
+    case "OPEN":
+      return "OPENED";
+    case "RESOLVE":
+      return "RESOLVED";
+    case "CHANGE_SEVERITY":
+      return action.severity === "DOWN" ? "ESCALATED" : "DOWNGRADED";
+    case "NONE":
+      return null;
+  }
 }
