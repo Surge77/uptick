@@ -1,0 +1,45 @@
+{
+  "name": "@uptick/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --passWithNoTests",
+    "migrate": "dotenv -e ../../.env.local -- prisma migrate dev",
+    "migrate:deploy": "dotenv -e ../../.env.local -- prisma migrate deploy",
+    "migrate:status": "dotenv -e ../../.env.local -- prisma migrate status",
+    "push": "dotenv -e ../../.env.local -- prisma db push",
+    "studio": "dotenv -e ../../.env.local -- prisma studio",
+    "seed": "dotenv -e ../../.env.local -- tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.3.1"
+  },
+  "devDependencies": {
+    "dotenv-cli": "8.0.0",
+    "prisma": "6.3.1",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3",
+    "vitest": "4.1.10"
+  }
+}
