@@ -63,8 +63,8 @@ importers:
         specifier: 6.2.0
         version: 6.2.0
       undici:
-        specifier: 7.3.0
-        version: 7.3.0
+        specifier: 8.10.0
+        version: 8.10.0
     devDependencies:
       '@types/node':
         specifier: 22.10.6
@@ -1812,9 +1812,9 @@ packages:
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
-  undici@7.3.0:
-    resolution: {integrity: sha512-Qy96NND4Dou5jKoSJ2gm8ax8AJM/Ey9o9mz7KN1bb9GP+G0l20Zw8afxTnY2f4b7hmhn/z8aC2kfArVQlAhFBw==}
-    engines: {node: '>=20.18.1'}
+  undici@8.10.0:
+    resolution: {integrity: sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==}
+    engines: {node: '>=22.19.0'}
 
   unicorn-magic@0.1.0:
     resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
@@ -3483,7 +3483,7 @@ snapshots:
 
   undici-types@6.20.0: {}
 
-  undici@7.3.0: {}
+  undici@8.10.0: {}
 
   unicorn-magic@0.1.0: {}
 

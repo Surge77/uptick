@@ -6,9 +6,21 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      // Adapters are thin wrappers over Node sockets; they are exercised by the
-      // live diagnostic script rather than by unit tests against fakes.
-      exclude: ["src/**/*.test.ts", "src/main.ts", "src/adapters/**"],
+      // Excluded because a unit test against a fake would prove nothing about
+      // them, and both ARE verified — just not here:
+      //  - adapters/**  thin wrappers over Node sockets and undici
+      //  - watch/lease  raw SQL whose guarantee is a property of Postgres row
+      //                 locking; proven by scripts/diag-lease.ts against a real
+      //                 database, which is the only thing that can prove it
+      //  - main.ts      process wiring and signal handling
+      exclude: [
+        "src/**/*.test.ts",
+        "src/main.ts",
+        // transport.ts IS covered, by transport.integration.test.ts
+        "src/adapters/resolver.ts",
+        "src/adapters/socket.ts",
+        "src/watch/lease.ts",
+      ],
       reporter: ["text"],
       thresholds: { lines: 85, functions: 85, branches: 80, statements: 85 },
     },

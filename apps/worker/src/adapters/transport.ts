@@ -12,11 +12,13 @@ import { request as undiciRequest } from "undici";
  * Two clauses of the port contract are security-critical and easy to violate
  * by accident:
  *
- *  1. `maxRedirections: 0`. undici must NOT follow redirects itself. If it
- *     does, `probeHttp` never observes hop 2 and the per-hop SSRF re-check is
- *     bypassed entirely — while every unit test still passes, because those
- *     inject a fake transport. This single option is the difference between a
- *     working guard and a decorative one.
+ *  1. Redirects must NOT be followed here. `undici.request` does not follow
+ *     them unless a redirect interceptor is installed, so this adapter simply
+ *     never installs one. That is easy to undo by accident, which is why
+ *     `transport.integration.test.ts` asserts against a real local server that
+ *     a 302 comes back as a 302: if undici ever followed it, `probeHttp` would
+ *     never observe hop 2 and the per-hop SSRF re-check would be bypassed —
+ *     while every fake-injected unit test still passed.
  *  2. The body is read incrementally and the stream is destroyed at
  *     `MAX_BODY_BYTES`. Buffering first and truncating after is too late: the
  *     memory is already allocated, so a hostile target streaming an endless
@@ -30,7 +32,6 @@ export const nodeTransport: HttpTransport = async (req: HttpRequest): Promise<Ht
     method: req.method as never,
     headers: req.headers,
     body: req.body,
-    maxRedirections: 0,
     headersTimeout: req.timeoutMs,
     bodyTimeout: req.timeoutMs,
   });
