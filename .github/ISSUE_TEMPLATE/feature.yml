@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a capability or improvement
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some things are deliberately out of scope — on-call rotation scheduling,
+        billing, SSO/SAML, synthetic browser checks, and log ingestion. See the
+        README before filing.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you unable to do today? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Including any workaround you are using now.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - check types
+        - alerting / notifications
+        - incidents
+        - status page
+        - dashboard
+        - API
+        - deployment / operations
+        - docs
+    validations:
+      required: true

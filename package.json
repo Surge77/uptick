@@ -1,0 +1,58 @@
+{
+  "name": "uptick",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Distributed uptime monitoring, incident tracking, and public status pages",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "type-check": "turbo run type-check",
+    "gate": "pnpm type-check && pnpm lint && pnpm test && pnpm build",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "db:generate": "pnpm --filter @uptick/db generate",
+    "db:migrate": "pnpm --filter @uptick/db migrate",
+    "db:push": "pnpm --filter @uptick/db push",
+    "db:seed": "pnpm --filter @uptick/db seed",
+    "db:studio": "pnpm --filter @uptick/db studio",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "19.6.1",
+    "@commitlint/config-conventional": "19.6.0",
+    "@eslint/js": "9.18.0",
+    "@types/node": "22.10.6",
+    "eslint": "9.18.0",
+    "eslint-config-prettier": "9.1.0",
+    "husky": "9.1.7",
+    "lint-staged": "15.4.1",
+    "prettier": "3.4.2",
+    "turbo": "2.3.3",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.20.0",
+    "vitest": "2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# test
+coverage/
+.vitest/
+
+# env — NEVER commit
+.env
+.env.*
+!.env.example
+
+# prisma
+packages/db/generated/
+prisma/*.db
+prisma/*.db-journal
+
+# editors / os
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.stackdump
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# vercel
+.vercel
