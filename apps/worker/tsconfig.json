@@ -3,10 +3,11 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "moduleResolution": "Bundler",
     "module": "ESNext",
-    "verbatimModuleSyntax": false
+    "moduleResolution": "Bundler",
+    "verbatimModuleSyntax": false,
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "generated", "prisma/seed.ts"]
+  "exclude": ["src/**/*.test.ts", "dist", "node_modules"]
 }

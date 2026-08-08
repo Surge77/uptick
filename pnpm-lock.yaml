@@ -51,6 +51,40 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@22.10.6)(@vitest/coverage-v8@4.1.10)(vite@7.3.6(@types/node@22.10.6)(jiti@2.6.1)(tsx@4.19.2)(yaml@2.6.1))
 
+  apps/worker:
+    dependencies:
+      '@uptick/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@uptick/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      p-limit:
+        specifier: 6.2.0
+        version: 6.2.0
+      undici:
+        specifier: 7.3.0
+        version: 7.3.0
+    devDependencies:
+      '@types/node':
+        specifier: 22.10.6
+        version: 22.10.6
+      '@vitest/coverage-v8':
+        specifier: 4.1.10
+        version: 4.1.10(vitest@4.1.10)
+      dotenv-cli:
+        specifier: 8.0.0
+        version: 8.0.0
+      tsx:
+        specifier: 4.19.2
+        version: 4.19.2
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@22.10.6)(@vitest/coverage-v8@4.1.10)(vite@7.3.6(@types/node@22.10.6)(jiti@2.6.1)(tsx@4.19.2)(yaml@2.6.1))
+
   packages/core:
     devDependencies:
       '@vitest/coverage-v8':
@@ -1488,6 +1522,10 @@ packages:
     resolution: {integrity: sha512-5b0R4txpzjPWVw/cXXUResoD4hb6U/x9BH08L7nw+GN1sezDzPdxeRvpc9c433fZhBan/wusjbCsqwqm4EIBIQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
+  p-limit@6.2.0:
+    resolution: {integrity: sha512-kuUqqHNUqoIWp/c467RI4X6mmyuojY5jGutNU0wVTmEOOfcuwLqyMVoAi9MKi2Ak+5i9+nhmrK4ufZE8069kHA==}
+    engines: {node: '>=18'}
+
   p-locate@5.0.0:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
@@ -1773,6 +1811,10 @@ packages:
 
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
+
+  undici@7.3.0:
+    resolution: {integrity: sha512-Qy96NND4Dou5jKoSJ2gm8ax8AJM/Ey9o9mz7KN1bb9GP+G0l20Zw8afxTnY2f4b7hmhn/z8aC2kfArVQlAhFBw==}
+    engines: {node: '>=20.18.1'}
 
   unicorn-magic@0.1.0:
     resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
@@ -3187,6 +3229,10 @@ snapshots:
     dependencies:
       yocto-queue: 1.2.2
 
+  p-limit@6.2.0:
+    dependencies:
+      yocto-queue: 1.2.2
+
   p-locate@5.0.0:
     dependencies:
       p-limit: 3.1.0
@@ -3436,6 +3482,8 @@ snapshots:
   typescript@5.7.3: {}
 
   undici-types@6.20.0: {}
+
+  undici@7.3.0: {}
 
   unicorn-magic@0.1.0: {}
 
