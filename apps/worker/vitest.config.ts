@@ -20,6 +20,13 @@ export default defineConfig({
         "src/adapters/resolver.ts",
         "src/adapters/socket.ts",
         "src/watch/lease.ts",
+        // Prisma access only. Their behaviour is proven end-to-end by
+        // scripts/diag-incidents.ts against a real database; asserting them
+        // against a mocked client would only test the mock.
+        "src/incidents/store.ts",
+        "src/incidents/pipeline.ts",
+        "src/jobs/ledger.ts",
+        "src/jobs/heartbeat-store.ts",
       ],
       reporter: ["text"],
       thresholds: { lines: 85, functions: 85, branches: 80, statements: 85 },

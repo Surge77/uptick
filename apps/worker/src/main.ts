@@ -4,7 +4,7 @@ import { nodeDnsLookup, nodeInspectCertificate, nodeTcpConnect } from "./adapter
 import { nodeTransport } from "./adapters/transport.js";
 import { loadConfig } from "./config.js";
 import { evaluateAndApply } from "./incidents/pipeline.js";
-import { findStaleHeartbeats, recordHeartbeatChecks } from "./jobs/heartbeat.js";
+import { findStaleHeartbeats, recordHeartbeatChecks } from "./jobs/heartbeat-store.js";
 import { daysToRollup, pruneChecks, rollupDay } from "./jobs/ledger.js";
 import { dispatchProbe } from "./watch/dispatch.js";
 import {
