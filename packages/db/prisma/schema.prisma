@@ -1,0 +1,602 @@
+// Uptick data model.
+//
+// See docs/DATA-MODEL.md for the rationale behind each table and
+// docs/adr/0003-rollups-for-sla.md for why SLA reads rollups and incident
+// durations rather than raw checks.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MonitorType {
+  HTTP
+  TCP
+  ICMP
+  SSL
+  DNS
+  HEARTBEAT
+}
+
+/// Confirmed state of a monitor. UP/DEGRADED/DOWN are conclusions reached by
+/// the verdict machine, never a single probe result. PENDING means not enough
+/// observations have accumulated to conclude anything yet.
+enum MonitorState {
+  PENDING
+  UP
+  DEGRADED
+  DOWN
+  PAUSED
+}
+
+enum IncidentSeverity {
+  DEGRADED
+  DOWN
+}
+
+enum IncidentUpdateStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+enum ChannelType {
+  EMAIL
+  SLACK
+  DISCORD
+  WEBHOOK
+}
+
+enum NotificationState {
+  PENDING
+  SENT
+  FAILED
+  SUPPRESSED
+}
+
+enum AnnotationKind {
+  DEPLOY
+  CONFIG_CHANGE
+  MANUAL
+  INCIDENT
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth.js v5 adapter models
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  memberships     Membership[]
+  ackedIncidents  Incident[]        @relation("IncidentAckedBy")
+  incidentUpdates IncidentUpdate[]
+  auditLogs       AuditLog[]
+}
+
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @db.Text
+  access_token             String? @db.Text
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String? @db.Text
+  session_state            String?
+  refresh_token_expires_in Int?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tenancy
+// ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships          Membership[]
+  monitors             Monitor[]
+  statusPages          StatusPage[]
+  notificationChannels NotificationChannel[]
+  maintenanceWindows   MaintenanceWindow[]
+  annotations          Annotation[]
+  auditLogs            AuditLog[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role     @default(MEMBER)
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Monitoring configuration
+// ─────────────────────────────────────────────────────────────
+
+/// One probe target and its policy.
+model Monitor {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  type           MonitorType @default(HTTP)
+  /// URL, host:port, or hostname depending on `type`.
+  target         String
+  method         String      @default("GET")
+  /// Expected status, body regex, JSON-path value, header matchers.
+  assertions     Json        @default("{}")
+  headers        Json        @default("{}")
+  body           String?     @db.Text
+
+  intervalSec Int @default(60)
+  timeoutMs   Int @default(10000)
+  /// Latency above this is DEGRADED: up, but slow.
+  degradedMs  Int @default(2000)
+
+  /// Consecutive failures required before declaring DOWN. A single failed probe
+  /// usually means the prober's network blipped, not that the target is down.
+  confirmThreshold Int @default(3)
+  /// Consecutive successes required before declaring recovery.
+  recoverThreshold Int @default(2)
+
+  /// Number of regions that must agree before a state change is accepted.
+  /// Clamped at runtime to the count of active regions.
+  quorum Int @default(2)
+
+  active Boolean      @default(true)
+  state  MonitorState @default(PENDING)
+
+  /// Drives the scheduler lease query. The hottest indexed column in the system.
+  nextCheckAt DateTime @default(now())
+  lastCheckAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  checks       Check[]
+  rollups      CheckRollup[]
+  incidents    Incident[]
+  sloTargets   SloTarget[]
+  annotations  Annotation[]
+  heartbeat    Heartbeat?
+  /// Edges where this monitor depends on another.
+  dependencies MonitorDependency[] @relation("Dependent")
+  /// Edges where other monitors depend on this one.
+  dependents   MonitorDependency[] @relation("DependedOn")
+
+  statusPageItems StatusPageItem[]
+  channelLinks    MonitorChannel[]
+
+  @@index([organizationId])
+  @@index([active, nextCheckAt])
+  @@index([organizationId, state])
+}
+
+/// Edge of the monitor dependency DAG: `monitor` depends on `dependsOn`.
+///
+/// Present from the first migration although only consumed from Phase 9.
+/// Retrofitting a dependency graph onto a flat monitor list means a migration
+/// plus a rewrite of every incident query. Cycles are rejected at write time.
+model MonitorDependency {
+  id          String   @id @default(cuid())
+  monitorId   String
+  dependsOnId String
+  createdAt   DateTime @default(now())
+
+  monitor   Monitor @relation("Dependent", fields: [monitorId], references: [id], onDelete: Cascade)
+  dependsOn Monitor @relation("DependedOn", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, dependsOnId])
+  @@index([dependsOnId])
+}
+
+/// A probe location. One worker process (an "eye") per active region.
+model Region {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  checks Check[]
+
+  @@index([active])
+}
+
+/// Push-based dead man's switch. The job pings us; silence is the alert.
+model Heartbeat {
+  id           String    @id @default(cuid())
+  monitorId    String    @unique
+  token        String    @unique
+  /// Alert if no ping arrives within this many seconds of the last one.
+  graceSec     Int       @default(300)
+  lastPingAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+}
+
+/// Planned downtime. Suppresses alerting and is subtracted from SLA.
+model MaintenanceWindow {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?  @db.Text
+  startsAt       DateTime
+  endsAt         DateTime
+  /// RFC 5545 recurrence rule for repeating windows. Null means one-off.
+  rrule          String?
+  monitorIds     String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startsAt])
+  @@index([startsAt, endsAt])
+}
+
+/// Service level objective. Drives error-budget and burn-rate alerting.
+model SloTarget {
+  id         String   @id @default(cuid())
+  monitorId  String
+  /// Percentage, e.g. 99.9
+  objective  Decimal  @default(99.9) @db.Decimal(6, 4)
+  windowDays Int      @default(30)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, windowDays])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Observations
+// ─────────────────────────────────────────────────────────────
+
+/// One probe result, per monitor, per region. The only unbounded table.
+///
+/// Partitioned by month with 30-day retention; retention is a partition DROP,
+/// not a DELETE, because deleting tens of millions of rows leaves dead tuples
+/// that bloat the table. Never scanned by user-facing code — see CheckRollup.
+///
+/// The primary key includes `ts` because Postgres requires the partition key
+/// to be part of every unique constraint. `id` uses uuidv7 so it sorts by
+/// creation time, keeping index inserts append-only.
+model Check {
+  id String @default(dbgenerated("uuidv7()")) @db.Uuid
+
+  monitorId String
+  regionId  String
+  ts        DateTime @default(now())
+
+  ok         Boolean
+  statusCode Int?
+  latencyMs  Int?
+  error      String?  @db.Text
+
+  /// Phase breakdown, so a slowdown can be attributed rather than just observed.
+  dnsMs     Int?
+  connectMs Int?
+  tlsMs     Int?
+  ttfbMs    Int?
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  region  Region  @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@id([id, ts])
+  @@index([monitorId, ts(sort: Desc)])
+  @@index([monitorId, regionId, ts(sort: Desc)])
+}
+
+/// Daily aggregate per monitor. Every user-facing uptime number reads this.
+/// Rebuilt idempotently: recomputing a day overwrites rather than appends.
+model CheckRollup {
+  id        String   @id @default(cuid())
+  monitorId String
+  /// UTC date bucket (midnight).
+  day       DateTime @db.Date
+
+  upCount    Int @default(0)
+  totalCount Int @default(0)
+
+  p50Ms Int?
+  p95Ms Int?
+  p99Ms Int?
+  minMs Int?
+  maxMs Int?
+
+  /// Seconds of confirmed downtime in this day, from incident durations.
+  downtimeSec Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  monitor Monitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, day])
+  @@index([day])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Conclusions
+// ─────────────────────────────────────────────────────────────
+
+/// A confirmed outage. Incidents are conclusions, not observations: only
+/// incidents page a human and only incidents count against SLA.
+model Incident {
+  id        String           @id @default(cuid())
+  monitorId String
+  severity  IncidentSeverity @default(DOWN)
+
+  startedAt  DateTime
+  resolvedAt DateTime?
+
+  cause String? @db.Text
+
+  ackedAt   DateTime?
+  ackedById String?
+
+  /// Set when this incident was rolled up into an ancestor's incident by
+  /// dependency-aware suppression, so the root cause pages once.
+  parentIncidentId String?
+
+  /// Alerting is suppressed while the monitor is flapping.
+  isFlapping Boolean @default(false)
+
+  /// Regions that observed the failure when the incident opened.
+  failingRegions String[]
+
+  escalationLevel Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  monitor  Monitor    @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  ackedBy  User?      @relation("IncidentAckedBy", fields: [ackedById], references: [id], onDelete: SetNull)
+  parent   Incident?  @relation("IncidentRollup", fields: [parentIncidentId], references: [id], onDelete: SetNull)
+  children Incident[] @relation("IncidentRollup")
+
+  updates       IncidentUpdate[]
+  notifications Notification[]
+
+  @@index([monitorId, startedAt(sort: Desc)])
+  @@index([resolvedAt])
+  @@index([parentIncidentId])
+}
+
+/// Append-only public timeline for an incident.
+model IncidentUpdate {
+  id         String               @id @default(cuid())
+  incidentId String
+  status     IncidentUpdateStatus
+  body       String               @db.Text
+  authorId   String?
+  createdAt  DateTime             @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  author   User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([incidentId, createdAt])
+}
+
+/// Point-in-time event overlaid on charts. Deploy correlation writes these.
+model Annotation {
+  id             String         @id @default(cuid())
+  organizationId String
+  monitorId      String?
+  kind           AnnotationKind @default(MANUAL)
+  label          String
+  meta           Json           @default("{}")
+  ts             DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  monitor      Monitor?     @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, ts(sort: Desc)])
+  @@index([monitorId, ts(sort: Desc)])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Delivery
+// ─────────────────────────────────────────────────────────────
+
+model NotificationChannel {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  type           ChannelType
+  /// Destination config. Webhook URLs are validated against the same SSRF
+  /// deny-list as probe targets.
+  config         Json        @default("{}")
+  verified       Boolean     @default(false)
+  enabled        Boolean     @default(true)
+  /// Escalation tier. Tier 0 fires first; higher tiers fire on unacked timeout.
+  tier           Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization  Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+  monitorLinks  MonitorChannel[]
+
+  @@index([organizationId])
+}
+
+model MonitorChannel {
+  monitorId String
+  channelId String
+
+  monitor Monitor             @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  channel NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@id([monitorId, channelId])
+  @@index([channelId])
+}
+
+/// One delivery attempt.
+///
+/// `dedupeKey` is derived from the incident STATE TRANSITION, not from the
+/// check. Its unique constraint is what makes "10 consecutive failures produce
+/// exactly 1 alert" a database-enforced invariant rather than a convention.
+model Notification {
+  id         String            @id @default(cuid())
+  incidentId String
+  channelId  String
+  dedupeKey  String            @unique
+  state      NotificationState @default(PENDING)
+  attempts   Int               @default(0)
+  error      String?           @db.Text
+  sentAt     DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  incident Incident            @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  channel  NotificationChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([state, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Publication
+// ─────────────────────────────────────────────────────────────
+
+model StatusPage {
+  id             String   @id @default(cuid())
+  organizationId String
+  slug           String   @unique
+  title          String
+  description    String?  @db.Text
+  customDomain   String?  @unique
+  isPublic       Boolean  @default(true)
+  /// Set for password-protected private pages.
+  passwordHash   String?
+  branding       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        StatusPageItem[]
+  subscribers  StatusPageSubscriber[]
+
+  @@index([organizationId])
+}
+
+/// A monitor published on a status page, with display ordering and grouping.
+model StatusPageItem {
+  id           String  @id @default(cuid())
+  statusPageId String
+  monitorId    String
+  displayName  String?
+  group        String?
+  position     Int     @default(0)
+
+  statusPage StatusPage @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+  monitor    Monitor    @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([statusPageId, monitorId])
+  @@index([statusPageId, position])
+}
+
+model StatusPageSubscriber {
+  id                String    @id @default(cuid())
+  statusPageId      String
+  email             String
+  verifiedAt        DateTime?
+  unsubscribeToken  String    @unique
+  createdAt         DateTime  @default(now())
+
+  statusPage StatusPage @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+
+  @@unique([statusPageId, email])
+  @@index([statusPageId, verifiedAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Audit
+// ─────────────────────────────────────────────────────────────
+
+/// Append-only. Never updated or deleted.
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  targetType     String
+  targetId       String?
+  meta           Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([actorId])
+}

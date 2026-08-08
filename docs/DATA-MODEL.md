@@ -96,6 +96,25 @@ One row per probe, per region.
 **Volume:** 100 monitors × 3 regions × 30s ≈ 26M rows/month. Partitioned by month
 so retention is a partition drop rather than a `DELETE` that bloats the table.
 
+Prisma cannot express declarative partitioning, so the `PARTITION BY RANGE ("ts")`
+clause and two helper functions are hand-written at the end of `0_init`:
+
+| Function                                     | Purpose                                                                                                                       |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `uptick_ensure_check_partition(at)`          | Creates the monthly partition covering `at` if absent. Idempotent, so the worker may call it every tick without coordination. |
+| `uptick_prune_check_partitions(retain_days)` | Drops partitions entirely older than the cutoff and returns their names.                                                      |
+
+A `Check_default` partition guarantees inserts never fail on a missing range.
+Rows landing there are a signal that the ensure-partition job has stopped running.
+
+Two consequences of partitioning are worth knowing:
+
+- The primary key is `(id, ts)`, not `id`. Postgres requires the partition key to
+  participate in every unique constraint on a partitioned table.
+- `id` defaults to `uuidv7()` (native in Postgres 18) rather than `cuid()`.
+  Version-7 UUIDs sort by creation time, so index inserts stay append-only
+  instead of scattering random writes across the B-tree.
+
 ### `CheckRollup`
 
 One row per monitor per day: `upCount`, `totalCount`, `p50`, `p95`, `p99`,
@@ -160,6 +179,25 @@ database-enforced invariant rather than an application convention.
 ### `StatusPageSubscriber`
 
 `email`, `verifiedAt`, `unsubscribeToken`. Double opt-in required.
+
+## Join and support tables
+
+### `Heartbeat`
+
+Push-based dead man's switch, one per `HEARTBEAT` monitor. Holds the secret
+`token` the job pings, a `graceSec` tolerance, and `lastPingAt`. The alert
+condition is silence: no ping within `graceSec` of the last one.
+
+### `MonitorChannel`
+
+Many-to-many join between `Monitor` and `NotificationChannel`. Composite primary
+key, so a monitor cannot be linked to the same channel twice.
+
+### `StatusPageItem`
+
+Which monitors a status page publishes, with `displayName`, `group`, and
+`position`. Publication is explicit and opt-in — a monitor is never exposed on a
+public page merely by existing.
 
 ## Audit
 
