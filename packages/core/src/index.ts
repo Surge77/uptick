@@ -6,3 +6,9 @@ export * from "./verdict/machine.js";
 
 export * from "./ledger/sla.js";
 export * from "./ledger/rollup.js";
+
+export * from "./probes/types.js";
+export * from "./probes/ssrf.js";
+export * from "./probes/assertions.js";
+export * from "./probes/http.js";
+export * from "./probes/network.js";
