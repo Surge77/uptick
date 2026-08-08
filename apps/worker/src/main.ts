@@ -3,6 +3,8 @@ import { nodeResolver } from "./adapters/resolver.js";
 import { nodeDnsLookup, nodeInspectCertificate, nodeTcpConnect } from "./adapters/socket.js";
 import { nodeTransport } from "./adapters/transport.js";
 import { loadConfig } from "./config.js";
+import { nodeDeliveryDeps } from "./adapters/notify.js";
+import { dispatchForIncident, runEscalations } from "./herald/dispatcher.js";
 import { evaluateAndApply } from "./incidents/pipeline.js";
 import { findStaleHeartbeats, recordHeartbeatChecks } from "./jobs/heartbeat-store.js";
 import { daysToRollup, pruneChecks, rollupDay } from "./jobs/ledger.js";
@@ -16,6 +18,7 @@ import {
 import { startWatch, type WatchPorts } from "./watch/scheduler.js";
 
 const HEARTBEAT_SWEEP_MS = 60_000;
+const ESCALATION_SWEEP_MS = 60_000;
 const LEDGER_INTERVAL_MS = 60 * 60_000;
 
 function log(event: string, fields: Record<string, unknown> = {}): void {
@@ -49,7 +52,25 @@ async function main(): Promise<void> {
     runProbe: (monitor) => dispatchProbe(monitor, probeDeps),
     recordChecks: (records) => recordChecks(prisma, regionId, records),
     evaluateIncidents: async (monitorIds, at) => {
-      const summary = await evaluateAndApply(prisma, monitorIds, at, ports.onError);
+      const summary = await evaluateAndApply(
+        prisma,
+        monitorIds,
+        at,
+        ports.onError,
+        async (incidentId, kind) => {
+          const sent = await dispatchForIncident(
+            prisma,
+            incidentId,
+            kind,
+            nodeDeliveryDeps,
+            at,
+            ports.onError,
+          );
+          if (sent.sent + sent.failed + sent.duplicates > 0) {
+            log("herald.dispatched", { incidentId, kind, ...sent });
+          }
+        },
+      );
       if (summary.opened + summary.resolved + summary.severityChanged + summary.suppressed > 0) {
         log("incidents.applied", { ...summary });
       }
@@ -115,6 +136,19 @@ async function main(): Promise<void> {
   }, LEDGER_INTERVAL_MS);
   ledgerTimer.unref();
 
+  // Escalation is time-based, so it is swept rather than triggered.
+  const escalationTimer = setInterval(() => {
+    void (async () => {
+      try {
+        const escalated = await runEscalations(prisma, nodeDeliveryDeps, new Date(), ports.onError);
+        if (escalated > 0) log("herald.escalated", { incidents: escalated });
+      } catch (error) {
+        ports.onError("runEscalations", error);
+      }
+    })();
+  }, ESCALATION_SWEEP_MS);
+  escalationTimer.unref();
+
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
@@ -123,6 +157,7 @@ async function main(): Promise<void> {
 
     // Give the in-flight tick a bounded chance to finish writing its checks.
     // Exiting immediately would discard observations already paid for.
+    clearInterval(escalationTimer);
     clearInterval(heartbeatTimer);
     clearInterval(ledgerTimer);
 
