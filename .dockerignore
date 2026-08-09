@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+.env*
+!.env.example
+apps/web
+docs
+*.md

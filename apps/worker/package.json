@@ -1,0 +1,33 @@
+{
+  "name": "@uptick/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "dev": "dotenv -e ../../.env.local -- tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "diag:lease": "dotenv -e ../../.env.local -- tsx scripts/diag-lease.ts",
+    "diag:incidents": "dotenv -e ../../.env.local -- tsx scripts/diag-incidents.ts",
+    "diag:alerts": "dotenv -e ../../.env.local -- tsx scripts/diag-alerts.ts"
+  },
+  "dependencies": {
+    "@uptick/core": "workspace:*",
+    "@uptick/db": "workspace:*",
+    "p-limit": "6.2.0",
+    "undici": "8.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.6",
+    "@vitest/coverage-v8": "4.1.10",
+    "dotenv-cli": "8.0.0",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3",
+    "vitest": "4.1.10"
+  }
+}
