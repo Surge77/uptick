@@ -16,7 +16,7 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "type-check": "turbo run type-check",
-    "gate": "pnpm type-check && pnpm lint && pnpm test && pnpm build",
+    "gate": "pnpm type-check && pnpm lint && pnpm test:coverage && pnpm build",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "db:generate": "pnpm --filter @uptick/db generate",
