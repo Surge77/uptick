@@ -1,7 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
-  "globalEnv": ["NODE_ENV", "DATABASE_URL", "DIRECT_URL", "REGION"],
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "REGION",
+    "AUTH_SECRET",
+    "AUTH_URL",
+    "AUTH_GITHUB_ID",
+    "AUTH_GITHUB_SECRET",
+    "NEXT_PUBLIC_APP_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build", "generate"],
