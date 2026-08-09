@@ -11,6 +11,8 @@ export * from "./ledger/correlate.js";
 
 export * from "./graph/suppression.js";
 
+export * from "./ingest/signature.js";
+
 export * from "./probes/types.js";
 export * from "./probes/ssrf.js";
 export * from "./probes/assertions.js";

@@ -10,7 +10,8 @@
     "AUTH_URL",
     "AUTH_GITHUB_ID",
     "AUTH_GITHUB_SECRET",
-    "NEXT_PUBLIC_APP_URL"
+    "NEXT_PUBLIC_APP_URL",
+    "DEPLOY_WEBHOOK_SECRET"
   ],
   "tasks": {
     "build": {
