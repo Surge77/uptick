@@ -8,6 +8,8 @@ import {
   loadOpenIncidents,
   loadRecentTransitions,
 } from "./store.js";
+import { shouldNotify } from "./notify-policy.js";
+import { computeSuppression, persistParentLinks } from "./suppression-store.js";
 
 /**
  * Evaluate the monitors touched by a tick and persist the resulting incidents.
@@ -26,6 +28,15 @@ export interface PipelineSummary {
   resolved: number;
   severityChanged: number;
   suppressed: number;
+  /** Incidents that did not page because an upstream failure explains them. */
+  dependencySuppressed: number;
+}
+
+/** A transition that has been persisted and is waiting on the alerting decision. */
+interface PendingNotification {
+  monitorId: string;
+  incidentId: string;
+  kind: NotificationKind;
 }
 
 export async function evaluateAndApply(
@@ -41,7 +52,10 @@ export async function evaluateAndApply(
     resolved: 0,
     severityChanged: 0,
     suppressed: 0,
+    dependencySuppressed: 0,
   };
+
+  const pending: PendingNotification[] = [];
 
   if (monitorIds.length === 0) return summary;
 
@@ -105,18 +119,45 @@ export async function evaluateAndApply(
 
       // Alerting follows persistence, never precedes it. Paging for an incident
       // that failed to commit would report an outage with no record behind it.
+      // The decision itself is deferred until suppression has been computed for
+      // the whole batch, below.
       if (notify) {
         const incidentId = await resolveIncidentId(prisma, monitor.id, evaluation.action);
         const kind = notificationKindFor(evaluation.action);
         if (incidentId && kind) {
-          await notify(incidentId, kind).catch((error: unknown) =>
-            onError(`notify ${incidentId}`, error),
-          );
+          pending.push({ monitorId: monitor.id, incidentId, kind });
         }
       }
     } catch (error) {
       // One monitor failing to persist must not abandon the rest of the batch.
       onError(`applyEvaluation ${monitor.id}`, error);
+    }
+  }
+
+  // Suppression runs once the batch is persisted, because it needs to see every
+  // incident this tick opened. Deciding per monitor mid-loop would page for a
+  // dependent service whose root cause is opened moments later in the same tick.
+  let suppressedBy: ReadonlyMap<string, string> = new Map();
+  try {
+    suppressedBy = await computeSuppression(prisma, monitorIds);
+    await persistParentLinks(prisma, suppressedBy);
+  } catch (error) {
+    // A suppression failure must not silence alerts: fall through with an empty
+    // map so every incident pages rather than none.
+    onError("computeSuppression", error);
+    suppressedBy = new Map();
+  }
+
+  if (notify) {
+    for (const item of pending) {
+      if (!shouldNotify(item.kind, suppressedBy.has(item.incidentId))) {
+        summary.dependencySuppressed += 1;
+        continue;
+      }
+
+      await notify(item.incidentId, item.kind).catch((error: unknown) =>
+        onError(`notify ${item.incidentId}`, error),
+      );
     }
   }
 
