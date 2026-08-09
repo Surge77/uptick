@@ -72,7 +72,8 @@ export default async function IncidentsPage({ params }: { params: Promise<{ org:
                 <div style={{ marginTop: "0.7rem" }}>
                   {incident.ackedAt ? (
                     <span className="small dim">
-                      Acknowledged by {incident.ackedBy?.name ?? incident.ackedBy?.email ?? "—"}
+                      Acknowledged by{" "}
+                      {incident.ackedBy?.name ?? incident.ackedBy?.email ?? "a team member"}
                     </span>
                   ) : (
                     writable && (

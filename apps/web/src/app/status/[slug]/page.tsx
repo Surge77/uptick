@@ -1,6 +1,7 @@
 import { EmptyState, Panel, StateBadge, duration } from "@/components/status";
 import { UptimeBar } from "@/components/uptime-bar";
 import { STATUS_WINDOW_DAYS, getPublicStatus } from "@/lib/status-page";
+import { aggregateUptime } from "@/lib/chart";
 import { formatUptime } from "@uptick/core";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -53,6 +54,32 @@ export default async function PublicStatusPage({ params }: { params: Promise<{ s
           </span>
         </div>
       </div>
+
+      {status.items.length > 0 && (
+        <div className="tiles" style={{ marginBottom: "1.1rem" }}>
+          {[
+            ["Last 24 hours", 1],
+            ["Last 7 days", 7],
+            ["Last 30 days", 30],
+            [`Last ${STATUS_WINDOW_DAYS} days`, STATUS_WINDOW_DAYS],
+          ].map(([label, window]) => {
+            const value = aggregateUptime(
+              status.items.map((i) => i.days),
+              window as number,
+            );
+            return (
+              <div className="tile" key={label as string}>
+                <div className="label" style={{ marginBottom: 0 }}>
+                  {label as string}
+                </div>
+                <div className="tile-value metric">
+                  {value === null ? "—" : `${value.toFixed(3)}%`}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Panel>
         {status.items.length === 0 ? (

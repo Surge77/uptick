@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./ui.css";
+import "./data.css";
 
 export const metadata: Metadata = {
   title: { default: "Uptick", template: "%s · Uptick" },

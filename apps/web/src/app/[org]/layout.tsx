@@ -1,5 +1,7 @@
 import { signOut } from "@/auth";
-import { NavLink } from "@/components/nav-link";
+import { AlertIcon, GlobeIcon, PulseIcon, SignOutIcon } from "@/components/icons";
+import { Wordmark } from "@/components/logo";
+import { SideLink } from "@/components/side-link";
 import { requireOrg } from "@/lib/tenancy";
 import Link from "next/link";
 
@@ -12,39 +14,55 @@ export default async function OrgLayout({
 }) {
   const { org: slug } = await params;
   const org = await requireOrg(slug);
+  const initials = org.name.slice(0, 2).toUpperCase();
 
   return (
-    <div className="shell">
-      <header className="header">
-        <Link href={`/${org.slug}`} className="brand">
-          <span className="brand-mark" />
-          Uptick
+    <div className="app">
+      <aside className="sidebar">
+        <Link href={`/${org.slug}`}>
+          <Wordmark />
         </Link>
 
-        <nav className="nav">
-          <NavLink href={`/${org.slug}`} label="Monitors" exact />
-          <NavLink href={`/${org.slug}/incidents`} label="Incidents" />
-          <NavLink href={`/${org.slug}/status-pages`} label="Status pages" />
-        </nav>
+        <SideLink href={`/${org.slug}`} label="Monitors" icon={<PulseIcon size={15} />} exact />
+        <SideLink
+          href={`/${org.slug}/incidents`}
+          label="Incidents"
+          icon={<AlertIcon size={15} />}
+        />
+        <SideLink
+          href={`/${org.slug}/status-pages`}
+          label="Status pages"
+          icon={<GlobeIcon size={15} />}
+        />
 
-        <div className="row push">
-          <span className="small dim">
-            {org.name} · {org.role.toLowerCase()}
-          </span>
+        <div className="side-foot">
+          <div className="org-chip">
+            <span className="avatar">{initials}</span>
+            <span style={{ minWidth: 0 }}>
+              <div className="small truncate" style={{ fontWeight: 560 }}>
+                {org.name}
+              </div>
+              <div className="small dim" style={{ lineHeight: 1.2 }}>
+                {org.role.toLowerCase()}
+              </div>
+            </span>
+          </div>
+
           <form
             action={async () => {
               "use server";
               await signOut({ redirectTo: "/signin" });
             }}
           >
-            <button type="submit" className="btn btn-sm">
+            <button type="submit" className="side-link" style={{ width: "100%" }}>
+              <SignOutIcon size={15} />
               Sign out
             </button>
           </form>
         </div>
-      </header>
+      </aside>
 
-      <main className="container">{children}</main>
+      <main className="content">{children}</main>
     </div>
   );
 }

@@ -47,29 +47,61 @@ function latencyFor(monitorId: string): { p50: number; p95: number; p99: number 
   return { p50: 87, p95: 243, p99: 512 };
 }
 
+/**
+ * Deterministic value noise in [-1, 1].
+ *
+ * A modulo-based wobble produced a perfect sawtooth in the sparklines, which
+ * read as obviously synthetic. Hashing the index and smoothing between whole
+ * steps gives a curve that drifts like a real latency series while staying
+ * reproducible across runs.
+ */
+function noise(seed: number, index: number): number {
+  const at = (i: number) => {
+    const x = Math.sin(seed * 374.761 + i * 91.7) * 43758.5453;
+    return (x - Math.floor(x)) * 2 - 1;
+  };
+  const whole = Math.floor(index);
+  const frac = index - whole;
+  const smooth = frac * frac * (3 - 2 * frac);
+  return at(whole) * (1 - smooth) + at(whole + 1) * smooth;
+}
+
+function seedOf(monitorId: string): number {
+  return [...monitorId].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+}
+
 async function writeRollups(monitorId: string): Promise<void> {
   const latency = latencyFor(monitorId);
+  const seed = seedOf(monitorId);
 
   for (let daysAgo = DAYS - 1; daysAgo >= 0; daysAgo -= 1) {
     const ratio = BAD_DAYS[monitorId]?.[daysAgo] ?? 1;
     const upCount = Math.round(CHECKS_PER_DAY * ratio);
-    const jitter = 1 + (daysAgo % 7) * 0.03;
+    // Two octaves: a slow drift plus a smaller day-to-day wobble.
+    const drift = noise(seed, daysAgo / 11) * 0.16;
+    const wobble = noise(seed + 17, daysAgo / 2.5) * 0.07;
+    // A bad day costs latency as well as availability.
+    const stress = (1 - ratio) * 6;
+    const jitter = Math.max(0.55, 1 + drift + wobble + stress);
+
+    // Update and create carry the same fields: an update clause that omitted
+    // the latency columns silently pinned them to whatever the first run
+    // wrote, so re-running the script appeared to do nothing.
+    const row = {
+      upCount,
+      totalCount: CHECKS_PER_DAY,
+      p50Ms: Math.round(latency.p50 * jitter),
+      p95Ms: Math.round(latency.p95 * jitter),
+      p99Ms: Math.round(latency.p99 * jitter),
+      minMs: Math.round(latency.p50 * 0.6),
+      maxMs: Math.round(latency.p99 * 1.8),
+      downtimeSec: Math.round((1 - ratio) * 86_400),
+    };
 
     await prisma.checkRollup.upsert({
       where: { monitorId_day: { monitorId, day: midnightUtc(daysAgo) } },
-      update: { upCount, totalCount: CHECKS_PER_DAY },
-      create: {
-        monitorId,
-        day: midnightUtc(daysAgo),
-        upCount,
-        totalCount: CHECKS_PER_DAY,
-        p50Ms: Math.round(latency.p50 * jitter),
-        p95Ms: Math.round(latency.p95 * jitter),
-        p99Ms: Math.round(latency.p99 * jitter),
-        minMs: Math.round(latency.p50 * 0.6),
-        maxMs: Math.round(latency.p99 * 1.8),
-        downtimeSec: Math.round((1 - ratio) * 86_400),
-      },
+      update: row,
+      create: { monitorId, day: midnightUtc(daysAgo), ...row },
     });
   }
 }
@@ -83,6 +115,11 @@ async function main(): Promise<void> {
     await writeRollups(monitorId);
   }
 
+  // Attribute the acknowledgement to a real user when one exists, so the feed
+  // shows a name rather than an em dash. A freshly cloned database has no
+  // users until someone signs in, hence the null fallback.
+  const actor = await prisma.user.findFirst({ select: { id: true } });
+
   // A resolved outage with a public timeline, to exercise the incident feed.
   const resolved = await prisma.incident.create({
     data: {
@@ -93,6 +130,7 @@ async function main(): Promise<void> {
       cause: "Upstream connection pool exhausted",
       failingRegions: ["fra", "iad"],
       ackedAt: new Date(midnightUtc(12).getTime() + 9 * 3_600_000 + 4 * 60_000),
+      ackedById: actor?.id ?? null,
     },
     select: { id: true },
   });

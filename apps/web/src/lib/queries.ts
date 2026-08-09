@@ -15,6 +15,8 @@ export interface MonitorSummary {
   uptimePercent: number;
   openIncidentId: string | null;
   p95Ms: number | null;
+  /** Trailing p95 series for the row sparkline, oldest first. */
+  latency: number[];
 }
 
 function windowStart(days: number, now: Date): Date {
@@ -52,8 +54,7 @@ export async function listMonitors(
       },
       rollups: {
         where: { day: { gte: since } },
-        orderBy: { day: "desc" },
-        take: 1,
+        orderBy: { day: "asc" },
         select: { p95Ms: true },
       },
     },
@@ -87,7 +88,8 @@ export async function listMonitors(
       lastCheckAt: m.lastCheckAt,
       uptimePercent: uptime.uptimePercent,
       openIncidentId: open?.id ?? null,
-      p95Ms: m.rollups[0]?.p95Ms ?? null,
+      p95Ms: m.rollups.at(-1)?.p95Ms ?? null,
+      latency: m.rollups.map((r) => r.p95Ms).filter((v): v is number => v !== null),
     };
   });
 }
