@@ -1,6 +1,7 @@
+import { BudgetMeter } from "@/components/budget-meter";
 import { Panel, StateBadge, relativeTime } from "@/components/status";
 import { setMonitorActive } from "@/lib/monitor-actions";
-import { getMonitor, getMonitorRollups } from "@/lib/queries";
+import { getMonitor, getMonitorBudget, getMonitorRollups } from "@/lib/queries";
 import { canWrite, requireOrg } from "@/lib/tenancy";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -34,7 +35,10 @@ export default async function MonitorDetailPage({
     notFound();
   }
 
-  const rollups = await getMonitorRollups(org.organizationId, id);
+  const [rollups, budget] = await Promise.all([
+    getMonitorRollups(org.organizationId, id),
+    getMonitorBudget(org.organizationId, id),
+  ]);
   const writable = canWrite(org.role);
 
   return (
@@ -110,6 +114,15 @@ export default async function MonitorDetailPage({
           </div>
         </div>
       </Panel>
+
+      {budget && (
+        <>
+          <div style={{ ...label, margin: "1.5rem 0 0.5rem" }}>Error budget</div>
+          <Panel>
+            <BudgetMeter budget={budget} />
+          </Panel>
+        </>
+      )}
 
       <div style={{ ...label, margin: "1.5rem 0 0.5rem" }}>Target</div>
       <Panel>

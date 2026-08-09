@@ -1,4 +1,4 @@
-import { computeUptime, type IncidentPeriod } from "@uptick/core";
+import { burnRate, computeErrorBudget, computeUptime, type IncidentPeriod } from "@uptick/core";
 import { prisma, type MonitorState } from "@uptick/db";
 
 /** Default reporting window for dashboard uptime figures. */
@@ -143,6 +143,81 @@ export async function getMonitorRollups(
     orderBy: { day: "asc" },
     select: { day: true, upCount: true, totalCount: true, p50Ms: true, p95Ms: true },
   });
+}
+
+export interface MonitorBudget {
+  objective: number;
+  windowDays: number;
+  allowedMs: number;
+  consumedMs: number;
+  remainingMs: number;
+  consumedFraction: number;
+  exhausted: boolean;
+  burnRate: number;
+}
+
+/**
+ * Error budget for a monitor's SLO target, or null if none is configured.
+ *
+ * The window is anchored to the target's own windowDays rather than the
+ * dashboard's 30-day default, since an SLO written against 7 days means
+ * something different from one written against 90.
+ */
+export async function getMonitorBudget(
+  organizationId: string,
+  monitorId: string,
+  now: Date = new Date(),
+): Promise<MonitorBudget | null> {
+  const target = await prisma.sloTarget.findFirst({
+    where: { monitorId, monitor: { organizationId } },
+    orderBy: { windowDays: "asc" },
+    select: { objective: true, windowDays: true },
+  });
+
+  if (!target) return null;
+
+  const since = windowStart(target.windowDays, now);
+
+  const [incidents, maintenance] = await Promise.all([
+    prisma.incident.findMany({
+      where: {
+        monitorId,
+        monitor: { organizationId },
+        OR: [{ resolvedAt: null }, { startedAt: { gte: since } }],
+      },
+      select: { startedAt: true, resolvedAt: true, severity: true },
+    }),
+    prisma.maintenanceWindow.findMany({
+      where: { organizationId, startsAt: { lte: now }, endsAt: { gte: since } },
+      select: { startsAt: true, endsAt: true },
+    }),
+  ]);
+
+  const budget = computeErrorBudget({
+    window: { start: since, end: now },
+    objective: Number(target.objective),
+    incidents: incidents.map((i) => ({
+      start: i.startedAt,
+      end: i.resolvedAt,
+      severity: i.severity,
+    })),
+    maintenance: maintenance.map((m) => ({ start: m.startsAt, end: m.endsAt })),
+    countDegraded: false,
+  });
+
+  return {
+    objective: Number(target.objective),
+    windowDays: target.windowDays,
+    allowedMs: budget.allowedMs,
+    consumedMs: budget.consumedMs,
+    remainingMs: budget.remainingMs,
+    consumedFraction: budget.consumedFraction,
+    exhausted: budget.exhausted,
+    // The window always runs to now, so the elapsed fraction is 1 and burn
+    // rate reduces to the consumed fraction. Kept explicit so a trailing
+    // sub-window can be introduced without changing the call site.
+    burnRate: burnRate(budget, 1),
+  };
 }
 
 /** Incident feed for an org, newest first. */
