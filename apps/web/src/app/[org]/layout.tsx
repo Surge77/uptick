@@ -29,6 +29,7 @@ export default async function OrgLayout({
         <nav style={{ display: "flex", gap: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>
           <Link href={`/${org.slug}`}>Monitors</Link>
           <Link href={`/${org.slug}/incidents`}>Incidents</Link>
+          <Link href={`/${org.slug}/status-pages`}>Status pages</Link>
         </nav>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "1rem" }}>
           <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>

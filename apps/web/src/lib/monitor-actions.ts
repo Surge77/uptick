@@ -5,6 +5,7 @@ import { prisma, type MonitorType, type Prisma } from "@uptick/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { invalid, type ActionResult } from "./action-result";
 import { canWrite, requireOrg, type ActiveOrg } from "./tenancy";
 
 /** Types whose `target` is a URL and must clear the SSRF pre-filter. */
@@ -20,11 +21,7 @@ const monitorInput = z.object({
   degradedMs: z.coerce.number().int().min(1).max(60_000),
 });
 
-export interface ActionResult {
-  ok: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string>;
-}
+export type { ActionResult };
 
 function parseForm(form: FormData) {
   return monitorInput.safeParse({
@@ -36,17 +33,6 @@ function parseForm(form: FormData) {
     timeoutMs: form.get("timeoutMs"),
     degradedMs: form.get("degradedMs"),
   });
-}
-
-function fieldErrorsOf(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (typeof key === "string" && !(key in out)) {
-      out[key] = issue.message;
-    }
-  }
-  return out;
 }
 
 /**
@@ -83,11 +69,7 @@ export async function createMonitor(orgSlug: string, form: FormData): Promise<Ac
 
   const parsed = parseForm(form);
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Check the highlighted fields.",
-      fieldErrors: fieldErrorsOf(parsed.error),
-    };
+    return invalid(parsed.error);
   }
 
   const targetError = validateTarget(parsed.data.type, parsed.data.target);
@@ -115,11 +97,7 @@ export async function updateMonitor(
 
   const parsed = parseForm(form);
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Check the highlighted fields.",
-      fieldErrors: fieldErrorsOf(parsed.error),
-    };
+    return invalid(parsed.error);
   }
 
   const targetError = validateTarget(parsed.data.type, parsed.data.target);
