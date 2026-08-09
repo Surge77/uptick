@@ -1,24 +1,41 @@
-import { Panel, StateBadge, relativeTime } from "@/components/status";
-import { UPTIME_WINDOW_DAYS, listMonitors } from "@/lib/queries";
+import { EmptyState, Panel, StateBadge, relativeTime } from "@/components/status";
+import { UPTIME_WINDOW_DAYS, listMonitors, type MonitorSummary } from "@/lib/queries";
+import { worstState } from "@/lib/status-severity";
 import { canWrite, requireOrg } from "@/lib/tenancy";
 import { formatUptime } from "@uptick/core";
 import Link from "next/link";
 
-const cell: React.CSSProperties = {
-  padding: "0.7rem 1rem",
-  borderTop: "1px solid var(--border)",
-  fontSize: "0.9rem",
+const HEADLINE: Record<string, string> = {
+  UP: "All systems operational",
+  DEGRADED: "Degraded performance",
+  DOWN: "Active outage",
+  PENDING: "Awaiting first results",
+  PAUSED: "Monitoring paused",
 };
 
-const head: React.CSSProperties = {
-  padding: "0.6rem 1rem",
-  textAlign: "left",
-  color: "var(--muted)",
-  fontSize: "0.75rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  fontWeight: 600,
-};
+function Summary({ monitors }: { monitors: MonitorSummary[] }) {
+  const overall = worstState(monitors.map((m) => m.state));
+  const down = monitors.filter((m) => m.state === "DOWN").length;
+  const degraded = monitors.filter((m) => m.state === "DEGRADED").length;
+
+  return (
+    <div className="hero" data-state={overall} style={{ marginBottom: "1.5rem" }}>
+      <div className="row">
+        <div>
+          <div className="hero-title">{HEADLINE[overall]}</div>
+          <div className="small muted" style={{ marginTop: "0.2rem" }}>
+            {monitors.length} monitor{monitors.length === 1 ? "" : "s"}
+            {down > 0 && ` · ${down} down`}
+            {degraded > 0 && ` · ${degraded} degraded`}
+          </div>
+        </div>
+        <span className="push">
+          <StateBadge state={overall} />
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default async function MonitorsPage({ params }: { params: Promise<{ org: string }> }) {
   const { org: slug } = await params;
@@ -27,77 +44,55 @@ export default async function MonitorsPage({ params }: { params: Promise<{ org: 
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "baseline", marginBottom: "1rem" }}>
-        <h1 style={{ fontSize: "1.15rem", margin: 0 }}>Monitors</h1>
-        <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: "0.8rem" }}>
-          Uptime over {UPTIME_WINDOW_DAYS} days
-        </span>
+      {monitors.length > 0 && <Summary monitors={monitors} />}
+
+      <div className="row-baseline" style={{ marginBottom: "0.85rem" }}>
+        <h1>Monitors</h1>
+        <span className="push small dim">Uptime over {UPTIME_WINDOW_DAYS} days</span>
         {canWrite(org.role) && (
-          <Link
-            href={`/${org.slug}/monitors/new`}
-            style={{
-              marginLeft: "1rem",
-              padding: "0.35rem 0.8rem",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              fontSize: "0.8rem",
-            }}
-          >
+          <Link href={`/${org.slug}/monitors/new`} className="btn btn-sm">
             New monitor
           </Link>
         )}
       </div>
 
-      {monitors.length === 0 ? (
-        <Panel>
-          <p style={{ padding: "2rem", textAlign: "center", color: "var(--muted)" }}>
-            No monitors yet.
-          </p>
-        </Panel>
-      ) : (
-        <Panel>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <Panel>
+        {monitors.length === 0 ? (
+          <EmptyState title="No monitors yet" hint="Create one to start recording availability." />
+        ) : (
+          <table className="table">
             <thead>
               <tr>
-                <th style={head}>Monitor</th>
-                <th style={head}>State</th>
-                <th style={head}>Uptime</th>
-                <th style={head}>p95</th>
-                <th style={head}>Last check</th>
+                <th>Monitor</th>
+                <th>State</th>
+                <th>Uptime</th>
+                <th>p95</th>
+                <th>Last check</th>
               </tr>
             </thead>
             <tbody>
               {monitors.map((m) => (
                 <tr key={m.id}>
-                  <td style={cell}>
+                  <td>
                     <Link href={`/${org.slug}/monitors/${m.id}`} style={{ fontWeight: 600 }}>
                       {m.name}
                     </Link>
-                    <div
-                      style={{
-                        color: "var(--muted)",
-                        fontSize: "0.78rem",
-                        maxWidth: "44ch",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <div className="small dim truncate">
                       {m.type} · {m.target}
                     </div>
                   </td>
-                  <td style={cell}>
+                  <td>
                     <StateBadge state={m.state} />
                   </td>
-                  <td style={cell}>{formatUptime(m.uptimePercent)}%</td>
-                  <td style={cell}>{m.p95Ms === null ? "—" : `${m.p95Ms} ms`}</td>
-                  <td style={{ ...cell, color: "var(--muted)" }}>{relativeTime(m.lastCheckAt)}</td>
+                  <td className="metric">{formatUptime(m.uptimePercent)}</td>
+                  <td className="metric">{m.p95Ms === null ? "—" : `${m.p95Ms} ms`}</td>
+                  <td className="muted">{relativeTime(m.lastCheckAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Panel>
-      )}
+        )}
+      </Panel>
     </>
   );
 }
