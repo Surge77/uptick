@@ -1,41 +1,12 @@
 import type { MonitorState } from "@uptick/db";
 
-const STATE_COLOR: Record<MonitorState, string> = {
-  UP: "var(--up)",
-  DEGRADED: "var(--degraded)",
-  DOWN: "var(--down)",
-  PENDING: "var(--muted)",
-  PAUSED: "var(--muted)",
-};
-
 export function StateDot({ state }: { state: MonitorState }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-block",
-        width: "9px",
-        height: "9px",
-        borderRadius: "50%",
-        background: STATE_COLOR[state],
-      }}
-    />
-  );
+  return <span className="dot" data-state={state} aria-hidden />;
 }
 
 export function StateBadge({ state }: { state: MonitorState }) {
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.4rem",
-        color: STATE_COLOR[state],
-        fontSize: "0.8rem",
-        fontWeight: 600,
-        letterSpacing: "0.02em",
-      }}
-    >
+    <span className="badge" data-state={state}>
       <StateDot state={state} />
       {state}
     </span>
@@ -43,16 +14,18 @@ export function StateBadge({ state }: { state: MonitorState }) {
 }
 
 export function Panel({ children }: { children: React.ReactNode }) {
+  return <div className="card">{children}</div>;
+}
+
+export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div
-      style={{
-        background: "var(--panel)",
-        border: "1px solid var(--border)",
-        borderRadius: "10px",
-        overflow: "hidden",
-      }}
-    >
-      {children}
+    <div className="empty">
+      <div style={{ fontWeight: 600, color: "var(--text)" }}>{title}</div>
+      {hint && (
+        <div className="small" style={{ marginTop: "0.35rem" }}>
+          {hint}
+        </div>
+      )}
     </div>
   );
 }

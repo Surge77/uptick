@@ -16,10 +16,10 @@ export default async function HomePage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: "2rem" }}>
+    <main className="center-screen">
       <div style={{ maxWidth: "420px", textAlign: "center" }}>
-        <h1 style={{ fontSize: "1.25rem" }}>No organization yet</h1>
-        <p style={{ color: "var(--muted)" }}>
+        <h1>No organization yet</h1>
+        <p className="muted" style={{ marginTop: "0.5rem" }}>
           Your account is not a member of any organization. Ask an owner to invite you, or seed one
           locally with <code>pnpm db:seed</code>.
         </p>

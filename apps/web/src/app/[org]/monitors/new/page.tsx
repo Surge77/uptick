@@ -14,7 +14,7 @@ export default async function NewMonitorPage({ params }: { params: Promise<{ org
 
   return (
     <>
-      <h1 style={{ fontSize: "1.15rem", marginTop: 0, marginBottom: "1.25rem" }}>New monitor</h1>
+      <h1 style={{ marginBottom: "1.4rem" }}>New monitor</h1>
       <MonitorForm
         action={createMonitorForm.bind(null, slug)}
         defaults={EMPTY_MONITOR}

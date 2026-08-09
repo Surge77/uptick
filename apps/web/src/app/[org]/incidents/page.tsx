@@ -1,4 +1,4 @@
-import { Panel, duration } from "@/components/status";
+import { EmptyState, Panel, duration } from "@/components/status";
 import { acknowledgeIncident } from "@/lib/monitor-actions";
 import { listIncidents } from "@/lib/queries";
 import { canWrite, requireOrg } from "@/lib/tenancy";
@@ -14,26 +14,28 @@ export default async function IncidentsPage({ params }: { params: Promise<{ org:
 
   return (
     <>
-      <h1 style={{ fontSize: "1.15rem", marginTop: 0, marginBottom: "1rem" }}>Incidents</h1>
+      <div className="row-baseline" style={{ marginBottom: "0.85rem" }}>
+        <h1>Incidents</h1>
+        <span className="push small dim">
+          {incidents.filter((i) => !i.resolvedAt).length} ongoing
+        </span>
+      </div>
 
       {incidents.length === 0 ? (
         <Panel>
-          <p style={{ padding: "2rem", textAlign: "center", color: "var(--muted)" }}>
-            No incidents recorded.
-          </p>
+          <EmptyState title="No incidents recorded" hint="Outages will appear here as they open." />
         </Panel>
       ) : (
-        <div style={{ display: "grid", gap: "0.6rem" }}>
+        <div className="stack">
           {incidents.map((incident) => (
-            <Panel key={incident.id}>
-              <div style={{ padding: "0.9rem 1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <div key={incident.id} className="card card-link">
+              <div className="card-pad">
+                <div className="row">
                   <span
+                    className="badge"
                     style={{
                       color: SEVERITY_COLOR[incident.severity],
-                      fontWeight: 700,
-                      fontSize: "0.75rem",
-                      letterSpacing: "0.05em",
+                      borderColor: `color-mix(in srgb, ${SEVERITY_COLOR[incident.severity]} 28%, transparent)`,
                     }}
                   >
                     {incident.severity}
@@ -45,27 +47,33 @@ export default async function IncidentsPage({ params }: { params: Promise<{ org:
                     {incident.monitor.name}
                   </Link>
                   {incident.isFlapping && (
-                    <span style={{ color: "var(--degraded)", fontSize: "0.75rem" }}>flapping</span>
+                    <span className="small" style={{ color: "var(--degraded)" }}>
+                      flapping
+                    </span>
                   )}
-                  <span style={{ marginLeft: "auto", color: "var(--muted)", fontSize: "0.8rem" }}>
+                  <span className="push small muted metric">
                     {incident.resolvedAt ? "Resolved" : "Ongoing"} ·{" "}
                     {duration(incident.startedAt, incident.resolvedAt)}
                   </span>
                 </div>
 
-                <div style={{ color: "var(--muted)", fontSize: "0.82rem", marginTop: "0.35rem" }}>
+                <div className="small dim metric" style={{ marginTop: "0.4rem" }}>
                   Started {incident.startedAt.toISOString().replace("T", " ").slice(0, 19)} UTC
                   {incident.failingRegions.length > 0 &&
                     ` · regions: ${incident.failingRegions.join(", ")}`}
                 </div>
 
                 {incident.cause && (
-                  <p style={{ fontSize: "0.85rem", margin: "0.5rem 0 0" }}>{incident.cause}</p>
+                  <p className="small" style={{ margin: "0.55rem 0 0" }}>
+                    {incident.cause}
+                  </p>
                 )}
 
-                <div style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--muted)" }}>
+                <div style={{ marginTop: "0.7rem" }}>
                   {incident.ackedAt ? (
-                    <>Acknowledged by {incident.ackedBy?.name ?? incident.ackedBy?.email ?? "—"}</>
+                    <span className="small dim">
+                      Acknowledged by {incident.ackedBy?.name ?? incident.ackedBy?.email ?? "—"}
+                    </span>
                   ) : (
                     writable && (
                       <form
@@ -74,18 +82,7 @@ export default async function IncidentsPage({ params }: { params: Promise<{ org:
                           await acknowledgeIncident(slug, incident.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          style={{
-                            background: "transparent",
-                            border: "1px solid var(--border)",
-                            color: "var(--text)",
-                            borderRadius: "6px",
-                            padding: "0.3rem 0.7rem",
-                            fontSize: "0.78rem",
-                            cursor: "pointer",
-                          }}
-                        >
+                        <button type="submit" className="btn btn-sm">
                           Acknowledge
                         </button>
                       </form>
@@ -93,7 +90,7 @@ export default async function IncidentsPage({ params }: { params: Promise<{ org:
                   )}
                 </div>
               </div>
-            </Panel>
+            </div>
           ))}
         </div>
       )}

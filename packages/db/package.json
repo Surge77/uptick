@@ -27,7 +27,8 @@
     "migrate:status": "dotenv -e ../../.env.local -- prisma migrate status",
     "push": "dotenv -e ../../.env.local -- prisma db push",
     "studio": "dotenv -e ../../.env.local -- prisma studio",
-    "seed": "dotenv -e ../../.env.local -- tsx prisma/seed.ts"
+    "seed": "dotenv -e ../../.env.local -- tsx prisma/seed.ts",
+    "seed:demo": "dotenv -e ../../.env.local -- tsx scripts/seed-demo.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

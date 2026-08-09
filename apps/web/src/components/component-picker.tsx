@@ -28,16 +28,11 @@ export function ComponentPicker({
   return (
     <form action={formAction}>
       {monitors.length === 0 ? (
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-          This organization has no monitors yet.
-        </p>
+        <p className="small muted">This organization has no monitors yet.</p>
       ) : (
-        <div style={{ display: "grid", gap: "0.4rem", marginBottom: "1rem" }}>
+        <div className="stack" style={{ gap: "0.5rem", marginBottom: "1.1rem" }}>
           {monitors.map((monitor) => (
-            <label
-              key={monitor.id}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.88rem" }}
-            >
+            <label key={monitor.id} className="check">
               <input
                 type="checkbox"
                 name="monitorId"
@@ -51,29 +46,17 @@ export function ComponentPicker({
       )}
 
       {state?.error && !state.ok && (
-        <div style={{ color: "var(--down)", fontSize: "0.82rem", marginBottom: "0.5rem" }}>
+        <div className="banner banner-error" style={{ marginBottom: "0.7rem" }}>
           {state.error}
         </div>
       )}
       {state?.ok && (
-        <div style={{ color: "var(--up)", fontSize: "0.82rem", marginBottom: "0.5rem" }}>
+        <div className="banner banner-ok" style={{ marginBottom: "0.7rem" }}>
           Components updated.
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={pending || monitors.length === 0}
-        style={{
-          padding: "0.45rem 0.9rem",
-          background: "transparent",
-          border: "1px solid var(--border)",
-          borderRadius: "6px",
-          color: "var(--text)",
-          fontSize: "0.85rem",
-          cursor: pending ? "wait" : "pointer",
-        }}
-      >
+      <button type="submit" className="btn btn-sm" disabled={pending || monitors.length === 0}>
         {pending ? "Saving…" : "Save components"}
       </button>
     </form>

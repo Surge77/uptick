@@ -1,4 +1,5 @@
 import { signOut } from "@/auth";
+import { NavLink } from "@/components/nav-link";
 import { requireOrg } from "@/lib/tenancy";
 import Link from "next/link";
 
@@ -13,27 +14,22 @@ export default async function OrgLayout({
   const org = await requireOrg(slug);
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <header
-        style={{
-          borderBottom: "1px solid var(--border)",
-          padding: "0.75rem 1.5rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "1.5rem",
-        }}
-      >
-        <Link href={`/${org.slug}`} style={{ fontWeight: 700 }}>
+    <div className="shell">
+      <header className="header">
+        <Link href={`/${org.slug}`} className="brand">
+          <span className="brand-mark" />
           Uptick
         </Link>
-        <nav style={{ display: "flex", gap: "1rem", color: "var(--muted)", fontSize: "0.9rem" }}>
-          <Link href={`/${org.slug}`}>Monitors</Link>
-          <Link href={`/${org.slug}/incidents`}>Incidents</Link>
-          <Link href={`/${org.slug}/status-pages`}>Status pages</Link>
+
+        <nav className="nav">
+          <NavLink href={`/${org.slug}`} label="Monitors" exact />
+          <NavLink href={`/${org.slug}/incidents`} label="Incidents" />
+          <NavLink href={`/${org.slug}/status-pages`} label="Status pages" />
         </nav>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "1rem" }}>
-          <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
-            {org.name} · {org.role}
+
+        <div className="row push">
+          <span className="small dim">
+            {org.name} · {org.role.toLowerCase()}
           </span>
           <form
             action={async () => {
@@ -41,24 +37,14 @@ export default async function OrgLayout({
               await signOut({ redirectTo: "/signin" });
             }}
           >
-            <button
-              type="submit"
-              style={{
-                background: "transparent",
-                border: "1px solid var(--border)",
-                color: "var(--muted)",
-                borderRadius: "6px",
-                padding: "0.3rem 0.7rem",
-                fontSize: "0.8rem",
-                cursor: "pointer",
-              }}
-            >
+            <button type="submit" className="btn btn-sm">
               Sign out
             </button>
           </form>
         </div>
       </header>
-      <main style={{ padding: "1.5rem", maxWidth: "1100px", margin: "0 auto" }}>{children}</main>
+
+      <main className="container">{children}</main>
     </div>
   );
 }

@@ -1,18 +1,13 @@
 import type { StatusDay } from "@/lib/status-page";
 
-const BAR_COLOR = {
-  none: "var(--border)",
-  up: "var(--up)",
-  degraded: "var(--degraded)",
-  down: "var(--down)",
-} as const;
+type Quality = "none" | "up" | "degraded" | "down";
 
 /** A day with any failed checks is not green; a fully failed day is red. */
-function colorFor(day: StatusDay): string {
-  if (day.totalCount === 0) return BAR_COLOR.none;
-  if (day.upCount === day.totalCount) return BAR_COLOR.up;
-  if (day.upCount === 0) return BAR_COLOR.down;
-  return BAR_COLOR.degraded;
+function qualityOf(day: StatusDay): Quality {
+  if (day.totalCount === 0) return "none";
+  if (day.upCount === day.totalCount) return "up";
+  if (day.upCount === 0) return "down";
+  return "degraded";
 }
 
 function labelFor(day: StatusDay): string {
@@ -20,23 +15,34 @@ function labelFor(day: StatusDay): string {
   return `${day.day}: ${day.upCount}/${day.totalCount} checks passed`;
 }
 
-export function UptimeBar({ days }: { days: StatusDay[] }) {
-  if (days.length === 0) {
-    return <div style={{ color: "var(--muted)", fontSize: "0.78rem" }}>No history yet</div>;
-  }
+/**
+ * Pad the strip back to a fixed width with blank days.
+ *
+ * A monitor with three days of history should not render a three-bar stub next
+ * to a neighbour showing ninety: the eye reads bar width as a time axis, and an
+ * unpadded strip silently rescales it. Missing days are drawn as absent rather
+ * than omitted.
+ */
+function padded(days: StatusDay[], window: number): (StatusDay | null)[] {
+  if (days.length >= window) return days.slice(-window);
+  return [...Array<null>(window - days.length).fill(null), ...days];
+}
+
+export function UptimeBar({ days, window = 90 }: { days: StatusDay[]; window?: number }) {
+  const cells = padded(days, window);
+  const label =
+    days.length === 0
+      ? "No availability history recorded yet"
+      : `Daily availability over the last ${window} days`;
 
   return (
-    <div style={{ display: "flex", gap: "2px", alignItems: "stretch", height: "26px" }}>
-      {days.map((day) => (
+    <div className="strip" role="img" aria-label={label}>
+      {cells.map((day, index) => (
         <div
-          key={day.day}
-          title={labelFor(day)}
-          style={{
-            flex: "1 1 3px",
-            minWidth: "3px",
-            borderRadius: "2px",
-            background: colorFor(day),
-          }}
+          key={day?.day ?? `blank-${index}`}
+          className="strip-bar"
+          data-quality={day ? qualityOf(day) : "none"}
+          title={day ? labelFor(day) : "No data"}
         />
       ))}
     </div>

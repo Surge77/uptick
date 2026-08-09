@@ -7,14 +7,6 @@ import { prisma } from "@uptick/db";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-const heading: React.CSSProperties = {
-  fontSize: "0.72rem",
-  color: "var(--muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  margin: "2rem 0 0.6rem",
-};
-
 export default async function EditStatusPagePage({
   params,
 }: {
@@ -53,11 +45,12 @@ export default async function EditStatusPagePage({
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "baseline", marginBottom: "1.25rem" }}>
-        <h1 style={{ fontSize: "1.15rem", margin: 0 }}>{page.title}</h1>
+      <div className="row-baseline" style={{ marginBottom: "1.4rem" }}>
+        <h1>{page.title}</h1>
         <Link
           href={`/status/${page.slug}`}
-          style={{ marginLeft: "auto", color: "var(--accent)", fontSize: "0.82rem" }}
+          className="push small"
+          style={{ color: "var(--accent)" }}
         >
           View public page →
         </Link>
@@ -74,9 +67,9 @@ export default async function EditStatusPagePage({
         submitLabel="Save changes"
       />
 
-      <h2 style={heading}>Published components</h2>
+      <div className="section-label">Published components</div>
       <Panel>
-        <div style={{ padding: "1rem 1.25rem" }}>
+        <div className="card-pad">
           <ComponentPicker
             action={setStatusPageItemsForm.bind(null, slug, page.id)}
             monitors={monitors.map((m) => ({

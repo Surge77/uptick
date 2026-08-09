@@ -23,9 +23,7 @@ export default async function EditMonitorPage({
 
   return (
     <>
-      <h1 style={{ fontSize: "1.15rem", marginTop: 0, marginBottom: "1.25rem" }}>
-        Edit {monitor.name}
-      </h1>
+      <h1 style={{ marginBottom: "1.4rem" }}>Edit {monitor.name}</h1>
       <MonitorForm
         action={updateMonitorForm.bind(null, slug, id)}
         defaults={{

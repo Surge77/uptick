@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActionResult } from "@/lib/monitor-actions";
+import type { ActionResult } from "@/lib/action-result";
 import { useActionState } from "react";
 
 export interface MonitorDefaults {
@@ -26,25 +26,6 @@ export const EMPTY_MONITOR: MonitorDefaults = {
 const MONITOR_TYPES = ["HTTP", "TCP", "ICMP", "SSL", "DNS", "HEARTBEAT"];
 const METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
 
-const field: React.CSSProperties = {
-  width: "100%",
-  padding: "0.5rem 0.65rem",
-  background: "var(--bg)",
-  border: "1px solid var(--border)",
-  borderRadius: "6px",
-  color: "var(--text)",
-  fontSize: "0.9rem",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  color: "var(--muted)",
-  fontSize: "0.72rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  marginBottom: "0.3rem",
-};
-
 function Field({
   name,
   label,
@@ -58,15 +39,11 @@ function Field({
 }) {
   return (
     <div>
-      <label style={labelStyle} htmlFor={name}>
+      <label className="label" htmlFor={name}>
         {label}
       </label>
       {children}
-      {error && (
-        <div style={{ color: "var(--down)", fontSize: "0.78rem", marginTop: "0.3rem" }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="error">{error}</div>}
     </div>
   );
 }
@@ -84,28 +61,16 @@ export function MonitorForm({
   const errors = state?.fieldErrors ?? {};
 
   return (
-    <form action={formAction} style={{ display: "grid", gap: "1rem", maxWidth: "620px" }}>
-      {state?.error && !state.ok && (
-        <div
-          style={{
-            border: "1px solid var(--down)",
-            color: "var(--down)",
-            borderRadius: "6px",
-            padding: "0.6rem 0.8rem",
-            fontSize: "0.85rem",
-          }}
-        >
-          {state.error}
-        </div>
-      )}
+    <form action={formAction} className="form">
+      {state?.error && !state.ok && <div className="banner banner-error">{state.error}</div>}
 
       <Field name="name" label="Name" error={errors.name}>
-        <input id="name" name="name" defaultValue={defaults.name} style={field} required />
+        <input id="name" name="name" className="input" defaultValue={defaults.name} required />
       </Field>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+      <div className="grid-2">
         <Field name="type" label="Type" error={errors.type}>
-          <select id="type" name="type" defaultValue={defaults.type} style={field}>
+          <select id="type" name="type" className="input" defaultValue={defaults.type}>
             {MONITOR_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -115,7 +80,7 @@ export function MonitorForm({
         </Field>
 
         <Field name="method" label="Method" error={errors.method}>
-          <select id="method" name="method" defaultValue={defaults.method} style={field}>
+          <select id="method" name="method" className="input" defaultValue={defaults.method}>
             {METHODS.map((m) => (
               <option key={m} value={m}>
                 {m}
@@ -129,23 +94,23 @@ export function MonitorForm({
         <input
           id="target"
           name="target"
+          className="input"
           defaultValue={defaults.target}
-          style={field}
           placeholder="https://example.com/health"
           required
         />
       </Field>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+      <div className="grid-3">
         <Field name="intervalSec" label="Interval (s)" error={errors.intervalSec}>
           <input
             id="intervalSec"
             name="intervalSec"
+            className="input"
             type="number"
             min={10}
             max={86400}
             defaultValue={defaults.intervalSec}
-            style={field}
           />
         </Field>
 
@@ -153,11 +118,11 @@ export function MonitorForm({
           <input
             id="timeoutMs"
             name="timeoutMs"
+            className="input"
             type="number"
             min={500}
             max={60000}
             defaultValue={defaults.timeoutMs}
-            style={field}
           />
         </Field>
 
@@ -165,31 +130,17 @@ export function MonitorForm({
           <input
             id="degradedMs"
             name="degradedMs"
+            className="input"
             type="number"
             min={1}
             max={60000}
             defaultValue={defaults.degradedMs}
-            style={field}
           />
         </Field>
       </div>
 
       <div>
-        <button
-          type="submit"
-          disabled={pending}
-          style={{
-            padding: "0.55rem 1.1rem",
-            background: "var(--accent)",
-            border: "none",
-            borderRadius: "6px",
-            color: "#fff",
-            fontSize: "0.9rem",
-            fontWeight: 600,
-            cursor: pending ? "wait" : "pointer",
-            opacity: pending ? 0.7 : 1,
-          }}
-        >
+        <button type="submit" className="btn btn-primary" disabled={pending}>
           {pending ? "Saving…" : submitLabel}
         </button>
       </div>

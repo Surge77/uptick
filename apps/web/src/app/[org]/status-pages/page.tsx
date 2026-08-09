@@ -1,4 +1,4 @@
-import { Panel } from "@/components/status";
+import { EmptyState, Panel } from "@/components/status";
 import { canWrite, requireOrg } from "@/lib/tenancy";
 import { prisma } from "@uptick/db";
 import Link from "next/link";
@@ -21,19 +21,10 @@ export default async function StatusPagesPage({ params }: { params: Promise<{ or
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "baseline", marginBottom: "1rem" }}>
-        <h1 style={{ fontSize: "1.15rem", margin: 0 }}>Status pages</h1>
+      <div className="row-baseline" style={{ marginBottom: "0.85rem" }}>
+        <h1>Status pages</h1>
         {canWrite(org.role) && (
-          <Link
-            href={`/${org.slug}/status-pages/new`}
-            style={{
-              marginLeft: "auto",
-              padding: "0.35rem 0.8rem",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              fontSize: "0.8rem",
-            }}
-          >
+          <Link href={`/${org.slug}/status-pages/new`} className="btn btn-sm push">
             New status page
           </Link>
         )}
@@ -41,36 +32,28 @@ export default async function StatusPagesPage({ params }: { params: Promise<{ or
 
       <Panel>
         {pages.length === 0 ? (
-          <p style={{ padding: "2rem", textAlign: "center", color: "var(--muted)" }}>
-            No status pages yet.
-          </p>
+          <EmptyState
+            title="No status pages yet"
+            hint="Publish a subset of your monitors to a public URL."
+          />
         ) : (
-          pages.map((page, index) => (
-            <div
-              key={page.id}
-              style={{
-                padding: "0.85rem 1rem",
-                borderTop: index === 0 ? "none" : "1px solid var(--border)",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-              }}
-            >
-              <Link href={`/${org.slug}/status-pages/${page.id}`} style={{ fontWeight: 600 }}>
-                {page.title}
-              </Link>
-              <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                /status/{page.slug} · {page._count.items} components
-              </span>
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontSize: "0.75rem",
-                  color: page.isPublic ? "var(--up)" : "var(--muted)",
-                }}
-              >
-                {page.isPublic ? "Public" : "Private"}
-              </span>
+          pages.map((page) => (
+            <div key={page.id} className="list-row">
+              <div className="row">
+                <Link href={`/${org.slug}/status-pages/${page.id}`} style={{ fontWeight: 600 }}>
+                  {page.title}
+                </Link>
+                <span className="small dim">
+                  /status/{page.slug} · {page._count.items} component
+                  {page._count.items === 1 ? "" : "s"}
+                </span>
+                <span
+                  className="push small"
+                  style={{ color: page.isPublic ? "var(--up)" : "var(--text-dim)" }}
+                >
+                  {page.isPublic ? "Public" : "Private"}
+                </span>
+              </div>
             </div>
           ))
         )}

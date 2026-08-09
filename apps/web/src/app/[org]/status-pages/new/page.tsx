@@ -13,9 +13,7 @@ export default async function NewStatusPagePage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <h1 style={{ fontSize: "1.15rem", marginTop: 0, marginBottom: "1.25rem" }}>
-        New status page
-      </h1>
+      <h1 style={{ marginBottom: "1.4rem" }}>New status page</h1>
       <StatusPageForm
         action={createStatusPageForm.bind(null, slug)}
         defaults={EMPTY_STATUS_PAGE}
