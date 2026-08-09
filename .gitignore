@@ -8,6 +8,7 @@ build/
 .next/
 out/
 *.tsbuildinfo
+next-env.d.ts
 
 # turbo
 .turbo/
@@ -41,3 +42,8 @@ pnpm-debug.log*
 
 # vercel
 .vercel
+
+# playwright mcp artifacts
+.playwright-mcp/
+*.png
+!public/**/*.png

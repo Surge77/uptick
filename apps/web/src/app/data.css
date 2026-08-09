@@ -1,0 +1,359 @@
+/* ── Monitor rows: an instrument cluster per service ──────── */
+.monitor-row {
+  display: grid;
+  grid-template-columns: 1fr 132px 100px 96px;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.8rem 1.15rem;
+  border-top: 1px solid var(--hairline);
+  transition: background 0.12s var(--ease);
+}
+
+.monitor-row:first-child {
+  border-top: none;
+}
+
+.monitor-row:hover {
+  background: var(--surface-2);
+}
+
+.monitor-name {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+}
+
+.type-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  flex: none;
+}
+
+.truncate {
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Row target path set in mono: it is an address, not prose. */
+.target-path {
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* ── Charts ───────────────────────────────────────────────── */
+.spark {
+  width: 100%;
+  height: 26px;
+  display: block;
+  overflow: visible;
+}
+
+.spark-empty {
+  height: 26px;
+  background: repeating-linear-gradient(90deg, var(--border) 0 2px, transparent 2px 6px);
+  opacity: 0.45;
+}
+
+.chart {
+  padding: 1.05rem 3.6rem 0.85rem 1.15rem;
+  position: relative;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 180px;
+  display: block;
+  overflow: visible;
+}
+
+.chart-axis {
+  position: absolute;
+  top: 1.05rem;
+  right: 1.1rem;
+  text-align: right;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 0.64rem;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.65rem;
+  font-family: var(--font-data);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-item i {
+  width: 12px;
+  height: 2px;
+  display: inline-block;
+}
+
+/* ── Uptime strip: the product's fingerprint ──────────────── */
+.strip {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  align-items: stretch;
+}
+
+.strip-bar {
+  flex: 1 1 3px;
+  min-width: 2px;
+  border-radius: 1px;
+  background: var(--surface-3);
+  transition: filter 0.1s var(--ease);
+}
+
+.strip-bar:hover {
+  filter: brightness(1.5);
+}
+
+.strip-bar[data-quality="up"] {
+  background: var(--up);
+  opacity: 0.88;
+}
+.strip-bar[data-quality="degraded"] {
+  background: var(--degraded);
+}
+.strip-bar[data-quality="down"] {
+  background: var(--down);
+}
+
+/* ── Meter ────────────────────────────────────────────────── */
+.meter-track {
+  height: 8px;
+  border-radius: 1px;
+  background: var(--bg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  /* Graduation ticks along the track, like a gauge face. */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(10% - 1px),
+    var(--hairline) calc(10% - 1px) 10%
+  );
+}
+
+.meter-fill {
+  height: 100%;
+  transition: width 0.5s var(--ease);
+}
+
+/* ── Stat tiles ───────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+}
+
+.stat {
+  background: var(--surface);
+  padding: 0.8rem 1.05rem;
+}
+
+.stat-value {
+  font-family: var(--font-data);
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.55rem;
+}
+
+.tile {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 0.8rem 1rem;
+}
+
+.tile::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-width: 1px 0 0 1px;
+}
+
+.tile-value {
+  font-family: var(--font-data);
+  font-size: 1.34rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-top: 0.2rem;
+}
+
+/* ── Hero: the master status plate ────────────────────────── */
+.hero {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.35rem 1.6rem;
+  background: var(--surface);
+  overflow: hidden;
+  border-left: 3px solid var(--hero-edge, var(--pending));
+}
+
+.hero[data-state="UP"] {
+  --hero-edge: var(--up);
+}
+.hero[data-state="DEGRADED"] {
+  --hero-edge: var(--degraded);
+}
+.hero[data-state="DOWN"] {
+  --hero-edge: var(--down);
+}
+
+/* A single slow radar sweep across the plate. Subtle, one element only. */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--hero-edge) 5%, transparent) 50%,
+    transparent 70%
+  );
+  animation: sweep 7s linear infinite;
+  pointer-events: none;
+}
+
+.hero-title {
+  font-size: 1.32rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: 0.5rem 1.15rem;
+  text-align: left;
+  font-family: var(--font-data);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.6rem 1.15rem;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.84rem;
+}
+
+.table tbody tr:first-child td {
+  border-top: none;
+}
+
+.table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.list-row {
+  padding: 0.9rem 1.2rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.list-row:first-child {
+  border-top: none;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--r);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.04), transparent);
+  animation: sweep 1.4s infinite;
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .side-foot {
+    margin-top: 0;
+    border-top: none;
+    padding-top: 0;
+    grid-auto-flow: column;
+    align-items: center;
+  }
+
+  .content {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .monitor-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 0.55rem;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -122,10 +122,10 @@ TTFB — so a slowdown can be attributed rather than just observed.
 - [x] **Phase 4** — Worker scheduler with leasing
 - [x] **Phase 5** — Incidents + rollups
 - [x] **Phase 6** — Alerting with dedup + escalation
-- [ ] **Phase 7** — Dashboard + auth
-- [ ] **Phase 8** — Public status page
-- [ ] **Phase 9** — Quorum · DAG suppression · deploy correlation · error budgets
-- [ ] **Phase 10** — Production deploy, rate limiting, v1.0.0
+- [x] **Phase 7** — Dashboard + auth
+- [x] **Phase 8** — Public status page
+- [x] **Phase 9** — Quorum · DAG suppression · deploy correlation · error budgets
+- [x] **Phase 10** — Production deploy, rate limiting, v1.0.0
 
 ### Deliberately out of scope
 

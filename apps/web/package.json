@@ -1,0 +1,34 @@
+{
+  "name": "@uptick/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env.local -- next dev",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --passWithNoTests --coverage"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "2.11.3",
+    "@uptick/core": "workspace:*",
+    "@uptick/db": "workspace:*",
+    "next": "16.3.0",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitest/coverage-v8": "4.1.10",
+    "dotenv-cli": "8.0.0",
+    "typescript": "5.7.3",
+    "vitest": "4.1.10"
+  }
+}

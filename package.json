@@ -1,6 +1,6 @@
 {
   "name": "uptick",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Distributed uptime monitoring, incident tracking, and public status pages",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "type-check": "turbo run type-check",
-    "gate": "pnpm type-check && pnpm lint && pnpm test && pnpm build",
+    "gate": "pnpm type-check && pnpm lint && pnpm test:coverage && pnpm build",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "db:generate": "pnpm --filter @uptick/db generate",
@@ -24,7 +24,8 @@
     "db:push": "pnpm --filter @uptick/db push",
     "db:seed": "pnpm --filter @uptick/db seed",
     "db:studio": "pnpm --filter @uptick/db studio",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:seed:demo": "pnpm --filter @uptick/db seed:demo"
   },
   "devDependencies": {
     "@commitlint/cli": "19.6.1",

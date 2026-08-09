@@ -29,6 +29,20 @@ One Railway service per region, each with `REGION` set to the matching
 railway up --service eye-fra
 ```
 
+The worker ships as a container. Build from the **repository root**, not from
+`apps/worker`, because the image needs the whole workspace:
+
+```bash
+docker build -f apps/worker/Dockerfile -t uptick-worker .
+docker run --rm --env-file .env.local -e REGION=fra uptick-worker
+```
+
+> The image copies the entire built workspace rather than a pruned bundle.
+> `@uptick/db` resolves its Prisma engine binary from `packages/db/generated`
+> at runtime, and pnpm's deploy pruning drops that directory because it is not
+> in the package's `files` list. A missing engine only surfaces on the first
+> query, long after the container reports healthy.
+
 **Deploy order matters when a migration is involved:** apply the migration first,
 then deploy the worker, then the web app. Migrations must be
 backwards-compatible for one release so a rolling deploy never runs old code
@@ -55,6 +69,27 @@ pnpm --filter @uptick/db exec prisma migrate deploy   # production
 | Worker deploy   | `railway rollback --service eye-<region>`                                                              |
 | Migration       | Migrations are forward-only. Write a new compensating migration; do not hand-edit `_prisma_migrations` |
 | Bad alert storm | Disable the affected `NotificationChannel`, or set `Monitor.active = false`                            |
+
+## Rate limiting
+
+`POST /api/deploys` is capped at 60 requests per minute per client IP, checked
+**before** signature verification — HMAC over attacker-supplied bodies is
+exactly the CPU an unauthenticated flood wants us to spend.
+
+Two backends, chosen at runtime:
+
+| Configuration                           | Behaviour                                           |
+| --------------------------------------- | --------------------------------------------------- |
+| `UPSTASH_REDIS_REST_URL` + `_TOKEN` set | Fixed window in Redis, shared across every instance |
+| Neither set                             | Sliding window in process memory, **per instance**  |
+
+The in-memory limiter is per-instance by design: two serverless instances each
+allow their own 60. That blunts abuse but is not an enforcement boundary — set
+the Upstash variables before relying on the cap.
+
+Both fail **open**. If Redis errors or times out the request is allowed, because
+dropping legitimate deploy markers is worse than briefly losing the cap on an
+endpoint that still requires a valid HMAC signature.
 
 ## Common incidents
 
