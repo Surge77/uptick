@@ -1,3 +1,4 @@
+import { provisionPersonalOrg } from "@/lib/provision";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@uptick/db";
 import NextAuth from "next-auth";
@@ -24,6 +25,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, user }) {
       session.user.id = user.id;
       return session;
+    },
+  },
+  events: {
+    // A user with no membership can see nothing and do nothing, so account
+    // creation and org creation happen together.
+    async createUser({ user }) {
+      if (user.id) {
+        await provisionPersonalOrg(user.id, user.name, user.email);
+      }
     },
   },
 });
