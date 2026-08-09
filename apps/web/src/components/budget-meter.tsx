@@ -19,7 +19,7 @@ export function BudgetMeter({ budget }: { budget: MonitorBudget }) {
       <div className="row-baseline" style={{ marginBottom: "0.6rem" }}>
         <span style={{ fontWeight: 600 }}>
           <span className="num">{budget.objective}%</span>{" "}
-          <span className="dim" style={{ fontWeight: 400 }}>
+          <span className="dim" style={{ fontWeight: 400, marginLeft: "0.35rem" }}>
             over {budget.windowDays} days
           </span>
         </span>

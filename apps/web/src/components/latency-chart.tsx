@@ -52,8 +52,8 @@ export function LatencyChart({ points }: { points: LatencyPoint[] }) {
       >
         <defs>
           <linearGradient id="latency-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--phosphor)" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="var(--phosphor)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -74,7 +74,7 @@ export function LatencyChart({ points }: { points: LatencyPoint[] }) {
           <path
             d={upper.line}
             fill="none"
-            stroke="var(--brand)"
+            stroke="var(--phosphor)"
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
@@ -100,7 +100,7 @@ export function LatencyChart({ points }: { points: LatencyPoint[] }) {
 
       <div className="chart-legend">
         <span className="legend-item">
-          <i style={{ background: "var(--brand)" }} /> p95
+          <i style={{ background: "var(--phosphor)" }} /> p95
         </span>
         <span className="legend-item">
           <i style={{ background: "var(--text-dim)" }} /> p50

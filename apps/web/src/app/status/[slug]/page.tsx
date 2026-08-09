@@ -34,7 +34,10 @@ export default async function PublicStatusPage({ params }: { params: Promise<{ s
 
   return (
     <main className="container-narrow">
-      <h1>{status.title}</h1>
+      <div className="ucase" style={{ marginBottom: "0.4rem" }}>
+        Service status · live
+      </div>
+      <h1 style={{ fontSize: "1.5rem" }}>{status.title}</h1>
       {status.description && (
         <p className="muted" style={{ marginTop: "0.3rem" }}>
           {status.description}

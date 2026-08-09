@@ -19,7 +19,7 @@ const HEADLINE: Record<string, string> = {
 function toneFor(state: string): string {
   if (state === "DOWN") return "var(--down)";
   if (state === "DEGRADED") return "var(--degraded)";
-  return "var(--brand)";
+  return "var(--phosphor)";
 }
 
 function Overview({ monitors }: { monitors: MonitorSummary[] }) {

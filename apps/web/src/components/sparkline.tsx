@@ -13,7 +13,7 @@ export function Sparkline({
   values,
   width = 120,
   height = 28,
-  tone = "var(--brand)",
+  tone = "var(--phosphor)",
 }: {
   values: readonly number[];
   width?: number;

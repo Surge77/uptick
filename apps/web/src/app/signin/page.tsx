@@ -1,4 +1,5 @@
 import { auth, signIn } from "@/auth";
+import { LogoMark } from "@/components/logo";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -17,8 +18,15 @@ export default async function SignInPage() {
           className="row"
           style={{ justifyContent: "center", gap: "0.55rem", marginBottom: "0.6rem" }}
         >
-          <span className="brand-mark" />
-          <span style={{ fontSize: "1.45rem", fontWeight: 680, letterSpacing: "-0.025em" }}>
+          <LogoMark size={34} />
+          <span
+            style={{
+              fontSize: "1.4rem",
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              textTransform: "uppercase",
+            }}
+          >
             Uptick
           </span>
         </div>
