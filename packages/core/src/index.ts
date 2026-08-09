@@ -6,6 +6,10 @@ export * from "./verdict/machine.js";
 
 export * from "./ledger/sla.js";
 export * from "./ledger/rollup.js";
+export * from "./ledger/budget.js";
+export * from "./ledger/correlate.js";
+
+export * from "./graph/suppression.js";
 
 export * from "./probes/types.js";
 export * from "./probes/ssrf.js";
