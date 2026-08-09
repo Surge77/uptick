@@ -124,7 +124,7 @@ TTFB — so a slowdown can be attributed rather than just observed.
 - [x] **Phase 6** — Alerting with dedup + escalation
 - [x] **Phase 7** — Dashboard + auth
 - [x] **Phase 8** — Public status page
-- [ ] **Phase 9** — Quorum · DAG suppression · deploy correlation · error budgets
+- [x] **Phase 9** — Quorum · DAG suppression · deploy correlation · error budgets
 - [ ] **Phase 10** — Production deploy, rate limiting, v1.0.0
 
 ### Deliberately out of scope
