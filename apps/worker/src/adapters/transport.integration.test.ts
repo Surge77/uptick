@@ -12,6 +12,15 @@ import { nodeTransport } from "./transport.js";
  */
 let server: Server;
 let base: string;
+let port: number;
+
+/**
+ * The server listens on loopback, which the deny-list forbids — so these tests
+ * hand the pin directly rather than going through the guard. That is the point:
+ * this file tests the adapter's socket behaviour, and the guard is tested where
+ * the guard lives.
+ */
+const PIN = ["127.0.0.1"];
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -44,7 +53,8 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (typeof address === "string" || address === null) throw new Error("no address");
-  base = `http://127.0.0.1:${address.port}`;
+  port = address.port;
+  base = `http://127.0.0.1:${port}`;
 });
 
 afterAll(async () => {
@@ -58,6 +68,7 @@ describe("nodeTransport", () => {
       method: "GET",
       headers: {},
       timeoutMs: 5000,
+      pinnedAddresses: PIN,
     });
 
     expect(result.status).toBe(200);
@@ -74,6 +85,7 @@ describe("nodeTransport", () => {
       method: "GET",
       headers: {},
       timeoutMs: 5000,
+      pinnedAddresses: PIN,
     });
 
     expect(result.status).toBe(302);
@@ -87,9 +99,40 @@ describe("nodeTransport", () => {
       method: "GET",
       headers: {},
       timeoutMs: 10_000,
+      pinnedAddresses: PIN,
     });
 
     expect(result.body.length).toBe(MAX_BODY_BYTES);
+  });
+
+  it("connects to the pinned address and never asks DNS", async () => {
+    // `.invalid` is reserved and resolves nowhere, so a response can only mean
+    // the socket used the pin. This is the DNS-rebinding defence proved against
+    // a real socket rather than a fake: no second lookup exists to poison.
+    const result = await nodeTransport({
+      url: `http://rebind.invalid:${port}/`,
+      method: "GET",
+      headers: {},
+      timeoutMs: 5000,
+      pinnedAddresses: PIN,
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toBe("ok");
+  });
+
+  it("refuses to connect when nothing was pinned", async () => {
+    // An empty pin means no address was validated. Falling back to DNS here
+    // would restore exactly the unguarded connect the pin removes.
+    await expect(
+      nodeTransport({
+        url: `${base}/`,
+        method: "GET",
+        headers: {},
+        timeoutMs: 5000,
+        pinnedAddresses: [],
+      }),
+    ).rejects.toThrow(/no validated address/i);
   });
 
   it("records time to first byte", async () => {
@@ -98,6 +141,7 @@ describe("nodeTransport", () => {
       method: "GET",
       headers: {},
       timeoutMs: 5000,
+      pinnedAddresses: PIN,
     });
     expect(result.timings?.ttfbMs).toBeGreaterThanOrEqual(0);
   });

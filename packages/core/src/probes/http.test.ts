@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertTargetAllowed, probeHttp, type HttpProbeDeps } from "./http.js";
+import {
+  assertTargetAllowed,
+  probeHttp,
+  resolveAllowedTarget,
+  type HttpProbeDeps,
+} from "./http.js";
 import type { HttpExchange, HttpRequest } from "./types.js";
 
 /** Resolver that maps hostnames to fixed addresses; unknown names fail. */
@@ -52,6 +57,17 @@ const ok = (over: Partial<HttpExchange> = {}): HttpExchange => ({
   headers: { "content-type": "text/plain" },
   body: "ok",
   ...over,
+});
+
+describe("resolveAllowedTarget", () => {
+  it("returns the hostname and every validated address", async () => {
+    const verdict = await resolveAllowedTarget("https://example.com/health", PUBLIC);
+    expect(verdict).toEqual({
+      allowed: true,
+      hostname: "example.com",
+      addresses: ["93.184.216.34"],
+    });
+  });
 });
 
 describe("assertTargetAllowed", () => {
@@ -137,6 +153,26 @@ describe("probeHttp", () => {
     expect(d.calls[0]!.method).toBe("POST");
     expect(d.calls[0]!.headers).toEqual({ "x-token": "abc" });
     expect(d.calls[0]!.body).toBe("payload");
+  });
+
+  it("pins the validated addresses onto the request", async () => {
+    // The transport must not resolve the host a second time: the guard checked
+    // the answer to query one, and query two is answered by the attacker.
+    const mixed = resolver({ "dual.example.com": ["93.184.216.34", "93.184.216.35"] });
+    const d = deps([ok()], mixed);
+    await probeHttp({ url: "https://dual.example.com/", timeoutMs: 5000 }, d);
+
+    expect(d.calls[0]!.pinnedAddresses).toEqual(["93.184.216.34", "93.184.216.35"]);
+  });
+
+  it("re-pins on each redirect hop rather than reusing hop one's addresses", async () => {
+    // Hop 2 is a different host. Carrying hop 1's pin forward would dial the
+    // first host with the second host's Host header.
+    const d = deps([ok({ status: 302, location: "https://evil.com/next" }), ok()]);
+    await probeHttp(base, d);
+
+    expect(d.calls[0]!.pinnedAddresses).toEqual(["93.184.216.34"]);
+    expect(d.calls[1]!.pinnedAddresses).toEqual(["93.184.216.35"]);
   });
 
   it("records transport errors as a failure rather than throwing", async () => {

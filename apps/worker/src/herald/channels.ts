@@ -1,5 +1,4 @@
-import { checkUrl, type AlertMessage, type Resolver } from "@uptick/core";
-import { assertTargetAllowed } from "@uptick/core";
+import { checkUrl, resolveAllowedTarget, type AlertMessage, type Resolver } from "@uptick/core";
 
 /**
  * Channel adapters.
@@ -19,9 +18,20 @@ export interface DeliveryRequest {
   monitorName: string;
 }
 
+export interface PostRequest {
+  url: string;
+  body: unknown;
+  headers?: Record<string, string>;
+  /**
+   * Addresses the SSRF guard validated for `url`. Same contract as the probe
+   * transport: dial one of these, never resolve `url`'s host again.
+   */
+  pinnedAddresses: readonly string[];
+}
+
 export interface DeliveryDeps {
   /** Posts JSON to a URL. Injected so channels are testable without network. */
-  post: (url: string, body: unknown, headers?: Record<string, string>) => Promise<number>;
+  post: (request: PostRequest) => Promise<number>;
   sendEmail: (to: string, subject: string, text: string) => Promise<void>;
   resolve: Resolver;
 }
@@ -40,15 +50,17 @@ function readString(config: Record<string, unknown>, key: string): string {
  * Validate a user-supplied destination URL before posting to it.
  *
  * Identical treatment to a probe target: resolve first, then check the
- * resolved address. A webhook pointed at 169.254.169.254 would otherwise
- * exfiltrate cloud credentials into whatever the response is echoed to.
+ * resolved address, then connect to that address. A webhook pointed at
+ * 169.254.169.254 would otherwise exfiltrate cloud credentials into whatever
+ * the response is echoed to.
  */
-async function assertDestinationAllowed(url: string, resolve: Resolver): Promise<void> {
+async function resolveDestination(url: string, resolve: Resolver): Promise<readonly string[]> {
   const structural = checkUrl(url);
   if (!structural.allowed) throw new DeliveryError(`Destination refused: ${structural.reason}`);
 
-  const blocked = await assertTargetAllowed(url, resolve);
-  if (blocked) throw new DeliveryError(`Destination refused: ${blocked}`);
+  const target = await resolveAllowedTarget(url, resolve);
+  if (!target.allowed) throw new DeliveryError(`Destination refused: ${target.reason}`);
+  return target.addresses;
 }
 
 function assertAccepted(status: number, channel: string): void {
@@ -70,10 +82,14 @@ export async function deliver(request: DeliveryRequest, deps: DeliveryDeps): Pro
 
     case "SLACK": {
       const url = readString(request.config, "webhookUrl");
-      await assertDestinationAllowed(url, deps.resolve);
-      const status = await deps.post(url, {
-        text: message.title,
-        attachments: [{ color: message.color, text: message.body }],
+      const pinnedAddresses = await resolveDestination(url, deps.resolve);
+      const status = await deps.post({
+        url,
+        pinnedAddresses,
+        body: {
+          text: message.title,
+          attachments: [{ color: message.color, text: message.body }],
+        },
       });
       assertAccepted(status, "Slack");
       return;
@@ -81,17 +97,21 @@ export async function deliver(request: DeliveryRequest, deps: DeliveryDeps): Pro
 
     case "DISCORD": {
       const url = readString(request.config, "webhookUrl");
-      await assertDestinationAllowed(url, deps.resolve);
-      const status = await deps.post(url, {
-        content: message.title,
-        embeds: [
-          {
-            title: message.title,
-            description: message.body,
-            // Discord takes a decimal colour, not a hex string.
-            color: Number.parseInt(message.color.replace("#", ""), 16),
-          },
-        ],
+      const pinnedAddresses = await resolveDestination(url, deps.resolve);
+      const status = await deps.post({
+        url,
+        pinnedAddresses,
+        body: {
+          content: message.title,
+          embeds: [
+            {
+              title: message.title,
+              description: message.body,
+              // Discord takes a decimal colour, not a hex string.
+              color: Number.parseInt(message.color.replace("#", ""), 16),
+            },
+          ],
+        },
       });
       assertAccepted(status, "Discord");
       return;
@@ -99,18 +119,19 @@ export async function deliver(request: DeliveryRequest, deps: DeliveryDeps): Pro
 
     case "WEBHOOK": {
       const url = readString(request.config, "url");
-      await assertDestinationAllowed(url, deps.resolve);
+      const pinnedAddresses = await resolveDestination(url, deps.resolve);
       const secret = typeof request.config.secret === "string" ? request.config.secret : null;
-      const status = await deps.post(
+      const status = await deps.post({
         url,
-        {
+        pinnedAddresses,
+        body: {
           monitor: request.monitorName,
           title: message.title,
           body: message.body,
           severityColor: message.color,
         },
-        secret ? { "x-uptick-secret": secret } : undefined,
-      );
+        ...(secret ? { headers: { "x-uptick-secret": secret } } : {}),
+      });
       assertAccepted(status, "Webhook");
       return;
     }

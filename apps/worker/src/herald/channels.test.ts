@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AlertMessage } from "@uptick/core";
-import { DeliveryError, deliver, type DeliveryDeps, type DeliveryRequest } from "./channels.js";
+import {
+  DeliveryError,
+  deliver,
+  type DeliveryDeps,
+  type DeliveryRequest,
+  type PostRequest,
+} from "./channels.js";
 
 const message: AlertMessage = {
   title: "Acme API is DOWN",
@@ -9,15 +15,15 @@ const message: AlertMessage = {
 };
 
 function deps(over: Partial<DeliveryDeps> = {}): DeliveryDeps & {
-  posts: Array<{ url: string; body: unknown; headers?: Record<string, string> }>;
+  posts: PostRequest[];
   emails: Array<{ to: string; subject: string }>;
 } {
-  const posts: Array<{ url: string; body: unknown; headers?: Record<string, string> }> = [];
+  const posts: PostRequest[] = [];
   const emails: Array<{ to: string; subject: string }> = [];
 
   return {
-    post: async (url, body, headers) => {
-      posts.push({ url, body, headers });
+    post: async (request) => {
+      posts.push(request);
       return 200;
     },
     sendEmail: async (to, subject) => {
@@ -103,6 +109,15 @@ describe("deliver", () => {
         ),
       ).rejects.toThrow(DeliveryError);
       expect(post).not.toHaveBeenCalled();
+    });
+
+    it("hands the validated addresses to the poster so it cannot re-resolve", async () => {
+      // Without the pin the poster asks DNS again, and the second answer is
+      // chosen by whoever owns the webhook host — rebinding straight past the
+      // check above.
+      const d = deps({ resolve: async () => ["93.184.216.34", "93.184.216.35"] });
+      await deliver(request(), d);
+      expect(d.posts[0]!.pinnedAddresses).toEqual(["93.184.216.34", "93.184.216.35"]);
     });
 
     it("refuses a destination that resolves privately", async () => {

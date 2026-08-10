@@ -143,6 +143,26 @@ describe("probeTcp", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("pins the validated addresses for the connector", async () => {
+    // The connector must dial what the deny-list judged. Handing it only the
+    // hostname makes it resolve again, and the answer to that second query is
+    // the monitored host's to choose.
+    const spy = vi.fn(async () => ({ connectMs: 12 }));
+    await probeTcp({ target: "example.com:443", timeoutMs: 5000 }, deps({ connect: spy }));
+    expect(spy).toHaveBeenCalledWith("example.com", 443, 5000, ["93.184.216.34"]);
+  });
+
+  it("pins an IP literal target to itself, with no resolution at all", async () => {
+    const spy = vi.fn(async () => ({ connectMs: 12 }));
+    const never = vi.fn(async () => []);
+    await probeTcp(
+      { target: "8.8.8.8:53", timeoutMs: 5000 },
+      deps({ connect: spy, resolve: never }),
+    );
+    expect(spy).toHaveBeenCalledWith("8.8.8.8", 53, 5000, ["8.8.8.8"]);
+    expect(never).not.toHaveBeenCalled();
+  });
+
   it("records a connection error as a failure", async () => {
     const failing = async () => {
       throw new Error("ECONNREFUSED");
@@ -282,13 +302,26 @@ describe("probeSsl", () => {
   it("defaults to port 443", async () => {
     const inspect = vi.fn(async () => cert());
     await probeSsl(options, { ...deps(cert()), inspect });
-    expect(inspect).toHaveBeenCalledWith("example.com", 443, 5000);
+    expect(inspect).toHaveBeenCalledWith("example.com", 443, 5000, ["93.184.216.34"]);
   });
 
   it("honours an explicit port", async () => {
     const inspect = vi.fn(async () => cert());
     await probeSsl({ ...options, target: "example.com:8443" }, { ...deps(cert()), inspect });
-    expect(inspect).toHaveBeenCalledWith("example.com", 8443, 5000);
+    expect(inspect).toHaveBeenCalledWith("example.com", 8443, 5000, ["93.184.216.34"]);
+  });
+
+  it("pins the validated addresses so the TLS socket cannot re-resolve", async () => {
+    const inspect = vi.fn(async () => cert());
+    await probeSsl(options, {
+      ...deps(cert()),
+      inspect,
+      resolve: async () => ["93.184.216.34", "93.184.216.35"],
+    });
+    expect(inspect).toHaveBeenCalledWith("example.com", 443, 5000, [
+      "93.184.216.34",
+      "93.184.216.35",
+    ]);
   });
 
   it("fails on an expired certificate", async () => {

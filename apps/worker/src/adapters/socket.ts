@@ -8,7 +8,8 @@ import {
   resolveNs,
   resolveTxt,
 } from "node:dns/promises";
-import type { CertificateFacts, DnsLookup, TcpConnector } from "@uptick/core";
+import type { CertificateFacts, CertificateInspector, DnsLookup, TcpConnector } from "@uptick/core";
+import { pinnedLookup } from "./pinned-lookup.js";
 
 /**
  * TCP connector.
@@ -16,11 +17,14 @@ import type { CertificateFacts, DnsLookup, TcpConnector } from "@uptick/core";
  * Timeouts are enforced with the socket's own timer and the socket is always
  * destroyed on the way out. A leaked socket per failed probe would exhaust the
  * file-descriptor limit within hours at production check rates.
+ *
+ * `lookup` is pinned to the addresses the SSRF guard validated, so this socket
+ * cannot land somewhere the deny-list never saw.
  */
-export const nodeTcpConnect: TcpConnector = (host, port, timeoutMs) =>
+export const nodeTcpConnect: TcpConnector = (host, port, timeoutMs, pinnedAddresses) =>
   new Promise((resolve, reject) => {
     const startedAt = performance.now();
-    const socket = netConnect({ host, port });
+    const socket = netConnect({ host, port, lookup: pinnedLookup(pinnedAddresses) });
 
     const done = (error?: Error): void => {
       socket.removeAllListeners();
@@ -44,15 +48,27 @@ export const nodeTcpConnect: TcpConnector = (host, port, timeoutMs) =>
  * monitor that refuses to connect to an expired certificate cannot tell you it
  * expired — it just reports a connection error, which is the wrong diagnosis.
  * No user data is ever sent over this connection.
+ *
+ * `servername` stays the hostname while `lookup` pins the address: the pin must
+ * not change which name is sent in SNI, or a name-based virtual host answers
+ * with the wrong certificate and the probe reports a mismatch that is its own
+ * doing.
  */
-export const nodeInspectCertificate = (
-  host: string,
-  port: number,
-  timeoutMs: number,
+export const nodeInspectCertificate: CertificateInspector = (
+  host,
+  port,
+  timeoutMs,
+  pinnedAddresses,
 ): Promise<CertificateFacts> =>
   new Promise((resolve, reject) => {
     const startedAt = performance.now();
-    const socket = tlsConnect({ host, port, servername: host, rejectUnauthorized: false });
+    const socket = tlsConnect({
+      host,
+      port,
+      servername: host,
+      rejectUnauthorized: false,
+      lookup: pinnedLookup(pinnedAddresses),
+    });
 
     const fail = (error: Error): void => {
       socket.removeAllListeners();

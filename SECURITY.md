@@ -68,17 +68,27 @@ Additional controls added after the Phase 3 security review:
   shared worker event loop, which Node cannot interrupt; a catastrophic pattern
   would stall every tenant's checks while appearing healthy.
 
-**Adapter contracts.** The `Resolver` and `HttpTransport` ports carry binding
-requirements, documented in `packages/core/src/probes/types.ts`: the resolver
-must return every A _and_ AAAA address using `dns.lookup` semantics, and the
-transport must not follow redirects itself. An adapter that follows redirects
-internally bypasses the per-hop re-check entirely while every unit test still
-passes — the tests inject fakes and prove nothing about the real socket.
+- **Pin the validated address for the connection.** Every guard returns the
+  addresses it approved, and they travel with the request (`pinnedAddresses`).
+  The adapters connect through `pinnedLookup`, a `lookup` implementation that
+  returns only those addresses and never queries DNS. Without this, the socket
+  resolves the name a _second_ time and the target's own nameserver answers —
+  publicly for the check, `127.0.0.1` for the connect. That is DNS rebinding,
+  and it defeats an otherwise complete deny-list. The pin overrides `lookup`
+  rather than rewriting the host, so the `Host` header, TLS SNI and certificate
+  verification all remain correct. An empty pin is refused rather than resolved:
+  empty means nothing was ever validated.
 
-DNS rebinding remains a residual risk: an attacker can return a public address at
-validation time and a private one at connection time. Mitigating this fully
-requires pinning the validated IP for the connection, which is tracked as
-follow-up work (`PINNING_TODO`).
+**Adapter contracts.** The `Resolver`, `HttpTransport`, `TcpConnector` and
+`CertificateInspector` ports carry binding requirements, documented alongside
+each type: the resolver must return every A _and_ AAAA address using
+`dns.lookup` semantics, the transport must not follow redirects itself, and
+every connector must dial a pinned address rather than re-resolving. An adapter
+that follows redirects internally bypasses the per-hop re-check entirely while
+every unit test still passes — the tests inject fakes and prove nothing about
+the real socket. That is why `transport.integration.test.ts` asserts both
+properties against a real server, including a request to a hostname that
+resolves nowhere: it can only succeed via the pin.
 
 ### Other boundaries
 

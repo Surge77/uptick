@@ -33,36 +33,57 @@ function fail(error: string, latencyMs: number): ProbeResult {
   return { ...EMPTY_TIMINGS, ok: false, statusCode: null, latencyMs, error };
 }
 
+export type TargetVerdict =
+  | { allowed: true; hostname: string; addresses: string[] }
+  | { allowed: false; reason: string };
+
 /**
- * Validate a URL structurally, then validate every address it resolves to.
+ * Validate a URL structurally, then validate every address it resolves to, and
+ * return those addresses so the caller can connect to them.
  *
- * ALL resolved addresses must pass, not merely one. A hostname with an A record
- * for a public address and another for 127.0.0.1 would otherwise be reachable
- * whenever the resolver happened to return the private one first.
+ * Two properties, both load-bearing:
+ *  - ALL resolved addresses must pass, not merely one. A hostname with an A
+ *    record for a public address and another for 127.0.0.1 would otherwise be
+ *    reachable whenever the resolver happened to return the private one first.
+ *  - The addresses come back to the caller. Returning only a boolean forces the
+ *    transport to resolve the name a second time, and the answer to that second
+ *    query is under the attacker's control — which is the rebinding bypass.
  */
-export async function assertTargetAllowed(url: string, resolve: Resolver): Promise<string | null> {
+export async function resolveAllowedTarget(url: string, resolve: Resolver): Promise<TargetVerdict> {
   const structural = checkUrl(url);
-  if (!structural.allowed) return structural.reason;
+  if (!structural.allowed) return { allowed: false, reason: structural.reason };
 
   let addresses: string[];
   try {
     addresses = await resolve(structural.hostname);
   } catch (error) {
-    return `DNS resolution failed: ${error instanceof Error ? error.message : String(error)}`;
+    return {
+      allowed: false,
+      reason: `DNS resolution failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 
   if (addresses.length === 0) {
-    return `DNS resolution returned no addresses for ${structural.hostname}`;
+    return {
+      allowed: false,
+      reason: `DNS resolution returned no addresses for ${structural.hostname}`,
+    };
   }
 
   for (const address of addresses) {
     const verdict = checkResolvedIp(address);
     if (!verdict.allowed) {
-      return `Blocked address ${address} (${verdict.reason})`;
+      return { allowed: false, reason: `Blocked address ${address} (${verdict.reason})` };
     }
   }
 
-  return null;
+  return { allowed: true, hostname: structural.hostname, addresses };
+}
+
+/** `resolveAllowedTarget` for callers that only need the refusal reason. */
+export async function assertTargetAllowed(url: string, resolve: Resolver): Promise<string | null> {
+  const verdict = await resolveAllowedTarget(url, resolve);
+  return verdict.allowed ? null : verdict.reason;
 }
 
 /**
@@ -88,8 +109,8 @@ export async function probeHttp(
   let redirects = 0;
 
   while (true) {
-    const blockReason = await assertTargetAllowed(currentUrl, resolve);
-    if (blockReason) return fail(blockReason, now() - started);
+    const target = await resolveAllowedTarget(currentUrl, resolve);
+    if (!target.allowed) return fail(target.reason, now() - started);
 
     let exchange;
     try {
@@ -99,6 +120,9 @@ export async function probeHttp(
         headers,
         body,
         timeoutMs: options.timeoutMs,
+        // Pinned per hop, not per probe: hop 2 is a different host and must be
+        // dialled at ITS validated addresses, never hop 1's.
+        pinnedAddresses: target.addresses,
       });
     } catch (error) {
       return fail(error instanceof Error ? error.message : String(error), now() - started);
