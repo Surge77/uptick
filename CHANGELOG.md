@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Close the DNS-rebinding gap in the SSRF guard. The guards now return the
+  addresses they validated, those addresses travel with every request, and the
+  HTTP, TCP, TLS and notification adapters connect through a pinned `lookup`
+  instead of resolving the hostname a second time. An unpinned connection is
+  refused rather than resolved
+
 ## [1.0.0] - 2026-08-09
 
 ### Added

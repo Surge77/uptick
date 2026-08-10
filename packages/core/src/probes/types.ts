@@ -78,16 +78,26 @@ export interface HttpRequest {
   headers: Record<string, string>;
   body?: string | undefined;
   timeoutMs: number;
+  /**
+   * Every address the SSRF guard validated for THIS url, on this hop. Non-empty
+   * whenever the guard allowed the request; see the transport contract below.
+   */
+  pinnedAddresses: readonly string[];
 }
 
 /**
- * ADAPTER CONTRACT - violating either clause silently defeats this module:
+ * ADAPTER CONTRACT - violating any clause silently defeats this module:
  *  - MUST NOT follow redirects itself (`redirect: "manual"`). If the transport
  *    follows them internally, `probeHttp` never sees hop 2 and the per-hop
  *    SSRF re-check is bypassed completely, while every injected-fake test
  *    still passes.
  *  - MUST stop reading the body at `MAX_BODY_BYTES` and abort the stream.
  *    Truncating after the fact is too late; the memory is already allocated.
+ *  - MUST connect to one of `pinnedAddresses` and MUST NOT resolve the
+ *    hostname again. Re-resolving reopens DNS rebinding: the guard validated
+ *    the answer to one query, and a hostile nameserver is free to answer the
+ *    second one with 169.254.169.254. An empty list MUST be refused rather
+ *    than resolved, because empty means nothing was ever validated.
  */
 export type HttpTransport = (request: HttpRequest) => Promise<HttpExchange>;
 

@@ -76,7 +76,7 @@ describe("dispatchProbe", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(connect).toHaveBeenCalledWith("example.com", 5432, 5000);
+    expect(connect).toHaveBeenCalledWith("example.com", 5432, 5000, ["93.184.216.34"]);
   });
 
   it("routes SSL monitors to the certificate probe", async () => {

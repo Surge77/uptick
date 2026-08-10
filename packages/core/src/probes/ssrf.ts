@@ -12,10 +12,11 @@
  *     an internal address is a complete bypass of a first-request-only check.
  *  3. Decode IPv4-mapped IPv6 before matching. `::ffff:127.0.0.1` is loopback
  *     wearing a v6 costume and matches no v6 deny range.
- *
- * Residual risk: DNS rebinding, where a name resolves to a public address at
- * validation time and a private one at connection time. Closing it requires
- * pinning the validated IP for the connection itself; see `PINNING_TODO` below.
+ *  4. Connect to the address that was validated, never to the hostname again.
+ *     Re-resolving after the check is DNS rebinding: the attacker's nameserver
+ *     answers publicly for the check and privately for the connect. The
+ *     validated addresses travel with the request as `pinnedAddresses` and the
+ *     adapters connect through a lookup that returns only those.
  */
 
 export type IpVersion = 4 | 6;
@@ -330,14 +331,3 @@ export function canonicalizeHost(host: string): string {
     return trimmed;
   }
 }
-
-/**
- * Known-unclosed gap, tracked deliberately rather than left implicit.
- *
- * Between `checkResolvedIp` succeeding and the socket connecting, a hostile
- * DNS server can change the answer (rebinding). The fix is to connect to the
- * validated IP directly while sending the original Host header, which requires
- * a custom undici Agent with a pinned `lookup`.
- */
-export const PINNING_TODO =
-  "DNS rebinding: pin the validated IP for the connection (custom undici lookup)";

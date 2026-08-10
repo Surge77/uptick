@@ -19,10 +19,18 @@ export interface TcpConnectResult {
   connectMs: number;
 }
 
+/**
+ * ADAPTER CONTRACT: `pinnedAddresses` are the addresses the SSRF guard
+ * validated for `host`. The connector MUST dial one of them and MUST NOT
+ * resolve `host` again — a second lookup is answered by the target's own
+ * nameserver, which is how rebinding turns a validated probe into a connection
+ * to 127.0.0.1. `host` is still passed so TLS can send the right SNI name.
+ */
 export type TcpConnector = (
   host: string,
   port: number,
   timeoutMs: number,
+  pinnedAddresses: readonly string[],
 ) => Promise<TcpConnectResult>;
 
 export interface TcpProbeOptions {
@@ -66,11 +74,16 @@ export async function probeTcp(options: TcpProbeOptions, deps: TcpProbeDeps): Pr
 
   const started = deps.now();
 
-  const blocked = await assertHostAllowed(parsed.host, deps.resolve);
-  if (blocked) return fail(blocked, deps.now() - started);
+  const host = await resolveAllowedHost(parsed.host, deps.resolve);
+  if (!host.allowed) return fail(host.reason, deps.now() - started);
 
   try {
-    const { connectMs } = await deps.connect(parsed.host, parsed.port, options.timeoutMs);
+    const { connectMs } = await deps.connect(
+      host.host,
+      parsed.port,
+      options.timeoutMs,
+      host.addresses,
+    );
     return {
       ...EMPTY_TIMINGS,
       ok: true,
@@ -84,38 +97,59 @@ export async function probeTcp(options: TcpProbeOptions, deps: TcpProbeDeps): Pr
   }
 }
 
+export type HostVerdict =
+  | { allowed: true; host: string; addresses: string[] }
+  | { allowed: false; reason: string };
+
 /**
- * Resolve a bare hostname and refuse it if any address is blocked.
+ * Resolve a bare hostname, refuse it if any address is blocked, and return the
+ * addresses a connector may dial.
  *
  * The same rule as the HTTP probe: a TCP monitor pointed at an internal
- * hostname is just as effective a port scanner as an HTTP one.
+ * hostname is just as effective a port scanner as an HTTP one. The addresses
+ * are returned rather than discarded so the connector never has to ask DNS a
+ * second question — the second answer is the attacker's to choose.
  */
-export async function assertHostAllowed(host: string, resolve: Resolver): Promise<string | null> {
+export async function resolveAllowedHost(host: string, resolve: Resolver): Promise<HostVerdict> {
   // Canonicalize first: 0177.0.0.1 and 2130706433 are loopback, and the raw
   // string form would otherwise be punted to DNS unchecked.
   const canonical = canonicalizeHost(host);
-  if (canonical === "") return "Missing host";
+  if (canonical === "") return { allowed: false, reason: "Missing host" };
 
   const literal = checkResolvedIp(canonical);
-  if (literal.allowed) return null;
+  // An IP literal is its own pin: there is no name to rebind.
+  if (literal.allowed) return { allowed: true, host: canonical, addresses: [canonical] };
   if (literal.kind === "denied") {
-    return `Blocked address ${canonical} (${literal.reason})`;
+    return { allowed: false, reason: `Blocked address ${canonical} (${literal.reason})` };
   }
 
   let addresses: string[];
   try {
     addresses = await resolve(canonical);
   } catch (error) {
-    return `DNS resolution failed: ${error instanceof Error ? error.message : String(error)}`;
+    return {
+      allowed: false,
+      reason: `DNS resolution failed: ${error instanceof Error ? error.message : String(error)}`,
+    };
   }
 
-  if (addresses.length === 0) return `DNS resolution returned no addresses for ${canonical}`;
+  if (addresses.length === 0) {
+    return { allowed: false, reason: `DNS resolution returned no addresses for ${canonical}` };
+  }
 
   for (const address of addresses) {
     const verdict = checkResolvedIp(address);
-    if (!verdict.allowed) return describeBlocked(address, verdict.reason);
+    if (!verdict.allowed) {
+      return { allowed: false, reason: describeBlocked(address, verdict.reason) };
+    }
   }
-  return null;
+  return { allowed: true, host: canonical, addresses };
+}
+
+/** `resolveAllowedHost` for callers that only need the refusal reason. */
+export async function assertHostAllowed(host: string, resolve: Resolver): Promise<string | null> {
+  const verdict = await resolveAllowedHost(host, resolve);
+  return verdict.allowed ? null : verdict.reason;
 }
 
 /**
@@ -194,10 +228,12 @@ export interface CertificateFacts {
   handshakeMs: number;
 }
 
+/** Same pinning contract as `TcpConnector`; SNI must still carry `host`. */
 export type CertificateInspector = (
   host: string,
   port: number,
   timeoutMs: number,
+  pinnedAddresses: readonly string[],
 ) => Promise<CertificateFacts>;
 
 export interface SslProbeOptions {
@@ -224,12 +260,12 @@ export async function probeSsl(options: SslProbeOptions, deps: SslProbeDeps): Pr
 
   const started = deps.now();
 
-  const blocked = await assertHostAllowed(parsed.host, deps.resolve);
-  if (blocked) return fail(blocked, deps.now() - started);
+  const host = await resolveAllowedHost(parsed.host, deps.resolve);
+  if (!host.allowed) return fail(host.reason, deps.now() - started);
 
   let cert: CertificateFacts;
   try {
-    cert = await deps.inspect(parsed.host, parsed.port, options.timeoutMs);
+    cert = await deps.inspect(host.host, parsed.port, options.timeoutMs, host.addresses);
   } catch (error) {
     return fail(error instanceof Error ? error.message : String(error), deps.now() - started);
   }
